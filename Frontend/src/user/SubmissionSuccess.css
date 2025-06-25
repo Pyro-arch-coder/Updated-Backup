@@ -1,0 +1,129 @@
+.submission-success-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  padding: 20px;
+}
+
+.success-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  max-width: 700px;
+  width: 100%;
+  text-align: center;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  animation: scaleUp 0.5s ease-in-out;
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.success-title {
+  color: #40916c;
+  font-size: 28px;
+  margin-bottom: 24px;
+  font-weight: 700;
+}
+
+.success-message {
+  margin-bottom: 32px;
+  color: #e9ecef;
+  line-height: 1.6;
+}
+
+.success-message p {
+  margin-bottom: 12px;
+}
+
+.email-note {
+  font-weight: 600;
+  color: #f1f8f5;
+}
+
+.status-note {
+  font-style: italic;
+}
+
+.next-steps {
+  background-color: #f1f8f5;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 32px;
+  text-align: left;
+}
+
+.next-steps h3 {
+  color: #40916c;
+  margin-bottom: 16px;
+  font-size: 20px;
+}
+
+.next-steps ol {
+  padding-left: 24px;
+}
+
+.next-steps li {
+  margin-bottom: 10px;
+  color: #e9ecef;
+  line-height: 1.5;
+}
+
+.redirect-message {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.countdown {
+  font-weight: 700;
+  color: #40916c;
+  font-size: 20px;
+}
+
+.redirect-now-btn {
+  background-color: #40916c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: background-color 0.2s;
+}
+
+.redirect-now-btn:hover {
+  background-color: #2d6a4f;
+}
+
+@media (max-width: 768px) {
+  .success-card {
+    padding: 30px 20px;
+  }
+  
+  .success-title {
+    font-size: 24px;
+  }
+  
+  .next-steps {
+    padding: 15px;
+  }
+}

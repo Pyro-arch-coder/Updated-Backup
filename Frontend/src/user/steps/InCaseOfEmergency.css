@@ -1,0 +1,310 @@
+@import './shared.css';
+
+.ice-container {
+  position: relative;
+}
+
+.ice-form.step-form {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2.5rem;
+  background: var(--bg-gradient);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(64, 145, 108, 0.1);
+}
+
+.ice-header.step-header {
+  font-size: 1.8rem;
+  text-align: center;
+  color: var(--primary-dark);
+  margin-bottom: 2rem;
+  font-weight: 700;
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.ice-header.step-header:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: var(--primary-color);
+  border-radius: 2px;
+}
+
+.ice-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.ice-form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid rgba(64, 145, 108, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  transition: var(--transition);
+  background-color: var(--bg-color);
+  color: #1b4332;
+  font-weight: 500;
+  box-sizing: border-box;
+}
+
+.ice-form-input::placeholder {
+  color: rgba(45, 106, 79, 0.6);
+  opacity: 1;
+}
+
+.ice-form-input:hover {
+  border-color: var(--primary-light);
+}
+
+.ice-form-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.15);
+  outline: none;
+}
+
+.ice-form-input.step-input.error {
+  border-color: var(--error-color);
+  background-color: var(--error-light);
+}
+
+/* Address fields styling */
+.ice-address-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ice-form-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ice-form-sublabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.ice-error-message {
+  color: var(--error-color);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.ice-form-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-top: 2.5rem;
+}
+
+.ice-back-btn.step-button {
+  min-width: 150px;
+  padding: 1rem 2rem;
+  background: #f1f5f9;
+  color: var(--primary-dark);
+  border: 2px solid var(--primary-bg);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ice-back-btn.step-button:hover {
+  background: var(--primary-bg);
+  transform: translateY(-2px);
+}
+
+.ice-next-btn.step-button {
+  min-width: 150px;
+  padding: 1rem 2rem;
+  background: linear-gradient(to right, var(--primary-color), var(--primary-dark));
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: var(--shadow-sm);
+}
+
+.ice-next-btn.step-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.ice-next-btn.step-button:disabled,
+.ice-back-btn.step-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Popup Styles */
+.ice-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: var(--transition);
+  z-index: 1000;
+}
+
+.ice-popup-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ice-popup-content {
+  background: var(--bg-color);
+  padding: 2rem;
+  border-radius: var(--radius-md);
+  text-align: center;
+  transform: translateY(-20px);
+  transition: var(--transition);
+  max-width: 450px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(64, 145, 108, 0.1);
+}
+
+.ice-popup-overlay.active .ice-popup-content {
+  transform: translateY(0);
+}
+
+.ice-popup-header {
+  font-size: 1.5rem;
+  color: var(--primary-dark);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.ice-popup-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.ice-confirm-btn.step-button {
+  background: linear-gradient(to right, var(--primary-color), var(--primary-dark));
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.ice-confirm-btn.step-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.ice-cancel-btn.step-button {
+  background: #f8f9fa;
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.ice-cancel-btn.step-button:hover {
+  background: var(--error-light);
+  transform: translateY(-2px);
+}
+
+/* Success Popup */
+.ice-success-popup {
+  padding: 2.5rem;
+}
+
+.ice-checkmark {
+  font-size: 3rem;
+  color: var(--primary-color);
+  margin-bottom: 1.5rem;
+  animation: scaleIn 0.5s ease-in-out;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ice-form.step-form {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+
+  .ice-popup-content {
+    padding: 1.5rem;
+  }
+
+  .ice-form-buttons,
+  .ice-popup-buttons {
+    flex-direction: column;
+  }
+  
+  .ice-back-btn.step-button,
+  .ice-next-btn.step-button,
+  .ice-confirm-btn.step-button,
+  .ice-cancel-btn.step-button {
+    width: 100%;
+    min-width: 0;
+    padding: 0.875rem 1.5rem;
+  }
+  
+  /* Responsive address fields */
+  .ice-address-fields {
+    gap: 0.75rem;
+  }
+}
+
+/* For larger screens, show address fields side by side */
+@media (min-width: 768px) {
+  .ice-address-fields {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .ice-form-subgroup {
+    flex: 1;
+    min-width: 30%;
+  }
+}

@@ -1,0 +1,116 @@
+.face-auth-container {
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: #f8fff8;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(46, 125, 50, 0.1);
+}
+
+.video-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #e8f5e9;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-container canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 60%;
+}
+
+.face.action-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    background: #2e7d32;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.face.action-btn:hover {
+    background: #1b5e20;
+}
+
+.face.action-btn:disabled {
+    background: #c8e6c9;
+    cursor: not-allowed;
+}
+
+.face.action-btn.secondary {
+    background: #43a047;
+}
+
+.face.action-btn.secondary:hover {
+    background: #388e3c;
+}
+
+.messagefc {
+    text-align: center;
+    margin: 1rem 0;
+    color: #2e7d32;
+    font-weight: 500;
+}
+
+.register-form {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.register-form input {
+    padding: 0.8rem;
+    font-size: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 200px;
+}
+
+.user-info {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.user-info h2 {
+    color: #1a73e8;
+    margin: 0;
+}
+
+.face-auth-container h1 {
+    color: #1a73e8;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .video-container {
+        width: 100%;
+        height: auto;
+    }
+
+    video, canvas {
+        width: 100%;
+        height: auto;
+    }
+}

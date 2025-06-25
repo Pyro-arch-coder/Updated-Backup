@@ -1,0 +1,530 @@
+.resend-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: modalFadeIn 0.25s ease-out;
+  backdrop-filter: blur(5px);
+}
+@keyframes modalFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.resend-modal-content {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  max-width: 780px;
+  width: 96vw;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-height: 85vh;
+}
+@keyframes modalPopIn {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.resend-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
+}
+.resend-modal-header h2 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #2E7D32;
+}
+.resend-modal-close {
+  background: #f5f5f5;
+  border: none;
+  font-size: 1.3rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0.3rem 0.5rem;
+  line-height: 1;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.resend-modal-close:hover {
+  background: #ffebee;
+  color: #e53935;
+  transform: rotate(90deg);
+}
+.resend-modal-body {
+  padding: 1.8rem 2.5rem;
+  max-height: calc(85vh - 140px);
+  overflow-y: auto;
+  background: #fff;
+  scrollbar-width: thin;
+}
+.resend-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.resend-modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+.resend-modal-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  font-size: 1rem;
+}
+.info-row label {
+  min-width: 160px;
+  font-weight: 600;
+  color: #2E7D32;
+  margin-right: 18px;
+  text-align: right;
+  padding-top: 8px;
+}
+.info-row span {
+  flex: 1;
+  color: #333;
+  font-weight: 400;
+  padding: 8px 0;
+}
+.family-row, .document-row {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  font-size: 0.98rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.family-row:hover, .document-row:hover {
+  background-color: #f0f0f0;
+}
+.section-header {
+  margin: 24px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  color: #2E7D32;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header:first-of-type {
+  margin-top: 0;
+}
+
+.section-content {
+  padding: 0 0 8px 0;
+}
+
+.section-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 20px 0;
+}
+.resend-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.2rem 2.5rem 1.5rem;
+  border-top: 1px solid #f0f0f0;
+  background: #ffffff;
+}
+.resend-btn {
+  background: linear-gradient(90deg, #2E7D32, #4CAF50);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(44,109,46,0.15);
+  transition: all 0.2s;
+}
+.resend-btn.save {
+  background: linear-gradient(90deg, #2E7D32, #4CAF50);
+}
+.resend-btn.cancel {
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #e0e7ef;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.resend-btn:hover:not(.cancel) {
+  background: linear-gradient(90deg, #388e3c, #66bb6a);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(44,109,46,0.2);
+}
+.resend-btn.cancel:hover {
+  background: #f8f8f8;
+  color: #e53935;
+  border-color: #ffcdd2;
+}
+.resend-modal input,
+.resend-modal select {
+  font-size: 1rem;
+  padding: 10px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  outline: none;
+  margin-bottom: 6px;
+  background: #ffffff;
+  width: auto;
+  min-width: 60px;
+  max-width: 100%;
+  transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+}
+.resend-modal input:focus,
+.resend-modal select:focus {
+  border-color: #2E7D32;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(46,125,50,0.1);
+}
+
+/* Emergency Contact Styling */
+.emergency-contact-row {
+  margin-bottom: 20px;
+}
+
+.emergency-contact-container {
+  width: 100%;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.emergency-contact-display,
+.emergency-contact-edit {
+  display: flex;
+  padding: 8px ;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.emergency-field-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.emergency-field-label {
+  font-weight: 600;
+  color: #2E7D32;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+
+.emergency-field-value {
+  padding: 8px 12px;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.emergency-field-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+/* Address field specific styling */
+.address-field {
+  margin-bottom: 15px;
+}
+
+.address-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.address-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.address-sublabel {
+  font-size: 0.85rem;
+  color: #555;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+/* Family Members Styling */
+.family-members-row {
+  margin-bottom: 20px;
+}
+
+.family-members-container {
+  width: 100%;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.family-members-display,
+.family-members-edit {
+  display: flex;
+  padding: 8px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.no-family-members {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  color: #666;
+  font-style: italic;
+}
+
+.family-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.family-member-item {
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.family-member-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+}
+
+.family-member-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.family-member-title {
+  font-weight: 600;
+  color: #2E7D32;
+  font-size: 1rem;
+}
+
+.remove-family-member-btn {
+  background: #ffebee;
+  color: #e53935;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-family-member-btn:hover {
+  background: #e53935;
+  color: #fff;
+}
+
+.family-member-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.family-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.family-field-label {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.family-field-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+  transition: border-color 0.2s ease;
+}
+
+.age-display-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.age-input {
+  padding-right: 110px; /* Make room for the badge */
+  background-color: #f5f5f5;
+  color: #666;
+  font-style: italic;
+}
+
+.age-calculation-badge {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #4CAF50;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  letter-spacing: 0.2px;
+  border: 1px solid #43A047;
+}
+
+.family-member-item .age-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.family-member-item .age-badge {
+  background-color: #4CAF50;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.family-field-input:focus {
+  border-color: #2E7D32;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+}
+
+.family-field-input:disabled {
+  background-color: #f5f5f5;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.family-field-input[type="date"] {
+  color: #333;
+  font-family: inherit;
+}
+
+.family-member-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.family-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.family-detail-label {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+  min-width: 80px;
+}
+
+.family-detail-value {
+  color: #333;
+}
+
+.add-family-member-btn {
+  background: #e8f5e9;
+  color: #2E7D32;
+  border: 1px solid #c8e6c9;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.add-family-member-btn:hover {
+  background: #c8e6c9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .emergency-field-row {
+    margin-bottom: 8px;
+  }
+  
+  .address-field {
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 700px) {
+  .resend-modal-content { max-width: 99vw; }
+  .resend-modal-header, .resend-modal-footer, .resend-modal-body {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .info-row label { min-width: 100px; font-size: 0.95rem; }
+  .info-row { font-size: 0.95rem; }
+}
+
+@media (max-width: 768px) {
+  .emergency-contact-display,
+  .emergency-contact-edit {
+    grid-template-columns: 1fr;
+  }
+}

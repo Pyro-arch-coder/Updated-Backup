@@ -1,0 +1,73 @@
+.logout-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.logout-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 2rem 2.5rem;
+  width: 90%;
+  max-width: 350px;
+  text-align: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.logout-modal h2 {
+  margin-top: 0;
+  font-size: 1.5rem;
+  color: #222;
+}
+
+.logout-modal p {
+  color: #555;
+  margin-bottom: 2rem;
+}
+
+.logout-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.logout-modal-cancel,
+.logout-modal-confirm {
+  flex: 1 1 0;
+  padding: 0.7rem 0;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.logout-modal-cancel {
+  background: #f3f3f3;
+  color: #444;
+}
+.logout-modal-cancel:hover {
+  background: #e0e0e0;
+}
+
+.logout-modal-confirm {
+  background: #e74c3c;
+  color: #fff;
+  font-weight: 600;
+}
+.logout-modal-confirm:hover {
+  background: #c0392b;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
