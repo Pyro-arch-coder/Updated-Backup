@@ -29,7 +29,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid
+  Grid,
+  Divider
 } from '@mui/material';
 
 // Import Material-UI icons
@@ -677,11 +678,11 @@ const Events = () => {
     <div className="qr-scanner-overlay">
       <div className="qr-scanner-modal">
         <div className="scanner-header">
-          <h2>Scan QR Code</h2>
+        <center> <h2>Scan QR Code</h2></center>
           {scannerError ? (
             <p className="scanner-error-message">{scannerError}</p>
           ) : (
-            <p className="scanner-instructions">Position the QR code within the frame</p>
+            <center><p className="scanner-instructions">Position the QR code within the frame</p></center>
           )}
         </div>
         
@@ -690,6 +691,7 @@ const Events = () => {
             <video 
               id="qr-scanner-video"
               className={`scanner-video ${scannerError ? 'scanner-error-state' : ''}`}
+              style={{ transform: 'scaleX(-1)' }}
             />
             <div className="scanner-corner top-left"></div>
             <div className="scanner-corner top-right"></div>
@@ -698,9 +700,8 @@ const Events = () => {
           </div>
         </div>
 
-        <div className="scanner-footer">
-          <button 
-            className="cancel-scan-btn"
+        <DialogActions sx={{ justifyContent: 'center', mt: 2 }}>
+          <Button
             onClick={() => {
               const videoElem = document.getElementById('qr-scanner-video');
               if (videoElem && videoElem.srcObject) {
@@ -709,10 +710,13 @@ const Events = () => {
               setShowScanner(false);
               setScannerError('');
             }}
+            variant="contained"
+            color="error"
+            sx={{ borderRadius: 2, fontWeight: 700, px: 4, py: 1, fontSize: 16, boxShadow: 'none', mt: 2 }}
           >
             Cancel
-          </button>
-        </div>
+          </Button>
+        </DialogActions>
       </div>
     </div>
   );
@@ -887,7 +891,8 @@ const Events = () => {
                         opacity: event.status === 'Completed' ? 0.5 : 1,
                         cursor: event.status === 'Completed' ? 'not-allowed' : 'pointer',
                         py: { xs: 0.5, sm: 1 },
-                        px: { xs: 1, sm: 2 }
+                        px: { xs: 1, sm: 2 },
+                        mb: { xs: 1, sm: 0 }
                       }}
                       size="small"
                     >
@@ -898,6 +903,7 @@ const Events = () => {
                       startIcon={<VisibilityIcon />}
                       onClick={() => {
                         setSelectedEvent(event);
+                        fetchEventAttendees(event.id);
                         setShowViewModal(true);
                       }}
                       sx={{
@@ -908,12 +914,35 @@ const Events = () => {
                         fontSize: { xs: '0.8rem', sm: '1rem' },
                         '&:hover': { backgroundColor: '#217dbb' },
                         py: { xs: 0.5, sm: 1 },
-                        px: { xs: 1, sm: 2 }
+                        px: { xs: 1, sm: 2 },
+                        mr: 1,
+                        mb: { xs: 1, sm: 0 }
                       }}
                       size="small"
                     >
                       <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>View</Box>
                     </Button>
+                    {['Active', 'Ongoing'].includes(event.status) && (
+                      <Button
+                        variant="contained"
+                        startIcon={<FaQrcode />}
+                        onClick={() => handleEventClick(event)}
+                        sx={{
+                          backgroundColor: '#16C47F',
+                          color: '#fff',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          fontSize: { xs: '0.8rem', sm: '1rem' },
+                          '&:hover': { backgroundColor: '#14a36f' },
+                          py: { xs: 0.5, sm: 1 },
+                          px: { xs: 1, sm: 2 },
+                          mb: { xs: 1, sm: 0 }
+                        }}
+                        size="small"
+                      >
+                        <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>Manage Attendees</Box>
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -1247,93 +1276,114 @@ const Events = () => {
 
       {/* Attendees Modal */}
       {showAttendeesModal && (
-        <div className="event-attendees-backdrop" onClick={() => setShowAttendeesModal(false)}>
-          <div className="event-attendees-modal" onClick={e => e.stopPropagation()}>
-            <div className="event-attendees-header">
-            <h3>Manage Attendees for Event #{currentEventId}</h3>
-              <button 
-                className="event-attendees-close" 
-                onClick={() => setShowAttendeesModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-            
-            <div className="event-attendees-content">
-              {/* Left side - Search and Add */}
-              <div className="event-attendees-search-section">
-                <div className="search-container">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search users by name or email"
-                    className="event-attendees-search-input"
-                  />
-                  <button 
-                    onClick={handleQRCodeScan}
-                    className="qr-scan-btn"
-                    title="Scan QR Code"
-                  >
-                    <FaQrcode />
-              </button>
-                </div>
-                
-                {searchMessage && (
-                  <div className="event-attendees-search-message" style={{ color: searchResults.length === 0 ? 'red' : 'green' }}>
-                    {searchMessage}
-                  </div>
-                )}
-                
-            {searchResults.length > 0 && (
-                  <div className="event-attendees-search-results">
-                {searchResults.map(user => (
-                      <div key={user.id} className="event-attendees-user-result">
-                    <span>{user.name} ({user.email})</span>
-                    <button 
-                      onClick={() => addAttendee(user.id)}
-                          className="event-attendees-add-btn"
-                    >
-                      Add
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-              </div>
-
-              {/* Right side - Attendees Table */}
-              <div className="event-attendees-table-section">
-                <h4>Current Attendees</h4>
-                <div className="event-attendees-table-container">
-                  <table className="event-attendees-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Barangay</th>
-                        <th>Attendance Time</th>
+        <Dialog open={showAttendeesModal} onClose={() => setShowAttendeesModal(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ backgroundColor: '#16C47F', color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 2, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              Manage Attendees for Event #{currentEventId}
+            </Box>
+            <IconButton onClick={() => setShowAttendeesModal(false)} size="large" sx={{ color: '#fff' }}>
+              <FaTimes />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#f8fafc' }}>
+            {/* Search/Add Section */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#16C47F', mb: 1 }}>Add Attendee</Typography>
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search users by name or email"
+                  className="event-attendees-search-input"
+                  style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 15, background: '#fff' }}
+                />
+                <Button
+                  onClick={handleQRCodeScan}
+                  variant="outlined"
+                  startIcon={<FaQrcode />}
+                  sx={{ borderRadius: 2, color: '#16C47F', borderColor: '#16C47F', fontWeight: 600, minWidth: 44, height: 44 }}
+                >
+                  Scan QR
+                </Button>
+              </Box>
+              {searchMessage && (
+                <Typography sx={{ color: searchResults.length === 0 ? 'red' : 'green', mt: 1 }}>{searchMessage}</Typography>
+              )}
+              {searchResults.length > 0 && (
+                <Box className="event-attendees-search-results" sx={{ mt: 2 }}>
+                  {searchResults.map(user => (
+                    <Paper key={user.id} elevation={1} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, borderRadius: 2, mb: 1, bgcolor: '#fff' }}>
+                      <span style={{ fontWeight: 500 }}>{user.name} ({user.email})</span>
+                      <Button
+                        onClick={() => addAttendee(user.id)}
+                        variant="contained"
+                        sx={{ backgroundColor: '#16C47F', color: '#fff', fontWeight: 600, borderRadius: 2, px: 2, py: 0.5, fontSize: 14, ml: 2, boxShadow: 'none' }}
+                      >
+                        Add
+                      </Button>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            {/* Attendees Table Section */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#16C47F', mb: 2 }}>Current Attendees</Typography>
+            <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: 2, boxShadow: 1, p: 0, maxHeight: 320, overflowY: 'auto' }}>
+              <table className="event-attendees-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
+                <thead>
+                  <tr style={{ background: '#f5f5f5' }}>
+                    <th style={{ padding: '10px 8px', fontWeight: 'bold', borderTopLeftRadius: 8 }}>Name</th>
+                    <th style={{ padding: '10px 8px', fontWeight: 'bold' }}>Email</th>
+                    <th style={{ padding: '10px 8px', fontWeight: 'bold' }}>Barangay</th>
+                    <th style={{ padding: '10px 8px', fontWeight: 'bold', borderTopRightRadius: 8 }}>Attendance Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendeesList.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', padding: '24px 0', color: '#888' }}>No attendees yet.</td>
+                    </tr>
+                  ) : (
+                    attendeesList.map(attendee => (
+                      <tr key={attendee.id} style={{ background: '#fff', borderBottom: '1px solid #f0f0f0' }}>
+                        <td style={{ padding: '8px' }}>{attendee.name}</td>
+                        <td style={{ padding: '8px' }}>{attendee.email}</td>
+                        <td style={{ padding: '8px' }}>{attendee.barangay}</td>
+                        <td style={{ padding: '8px' }}>{new Date(attendee.attend_at).toLocaleString()}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {attendeesList.map(attendee => (
-                        <tr key={attendee.id}>
-                          <td>{attendee.name}</td>
-                          <td>{attendee.email}</td>
-                          <td>{attendee.barangay}</td>
-                          <td>{new Date(attendee.attend_at).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </Paper>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, justifyContent: 'flex-end', bgcolor: '#f8fafc', borderBottomLeftRadius: 8, borderBottomRightRadius: 8 }}>
+            <Button onClick={() => setShowAttendeesModal(false)} sx={{ color: '#16C47F', fontWeight: 600, borderRadius: 2 }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
 
-      {showScanner && <QRScannerModal />}
+      {showScanner && (
+        <Box sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 2000, // very high to ensure on top
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'rgba(15,23,42,0.65)',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <QRScannerModal />
+        </Box>
+      )}
 
       {/* Add Completed Event Attendees Modal */}
       {showCompletedEventModal && (
@@ -1401,7 +1451,7 @@ const Events = () => {
       <Dialog 
         open={showViewModal && !!selectedEvent} 
         onClose={() => setShowViewModal(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle sx={{ backgroundColor: '#16C47F', color: 'white', fontWeight: 600 }}>
@@ -1464,6 +1514,39 @@ const Events = () => {
                   </Box>
                 </Box>
               </Box>
+            </Box>
+          )}
+          {selectedEvent && (
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#16C47F', mb: 2 }}>Attendees</Typography>
+              <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: 2, boxShadow: 1, p: 0, maxHeight: 320, overflowY: 'auto' }}>
+                <table className="event-attendees-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
+                  <thead>
+                    <tr style={{ background: '#f5f5f5' }}>
+                      <th style={{ padding: '10px 8px', fontWeight: 'bold' }}>Name</th>
+                      <th style={{ padding: '10px 8px', fontWeight: 'bold' }}>Email</th>
+                      <th style={{ padding: '10px 8px', fontWeight: 'bold' }}>Barangay</th>
+                      <th style={{ padding: '10px 8px', fontWeight: 'bold' }}>Attendance Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendeesList && attendeesList.length > 0 ? (
+                      attendeesList.map(attendee => (
+                        <tr key={attendee.id} style={{ background: '#fff', borderBottom: '1px solid #f0f0f0' }}>
+                          <td style={{ padding: '8px' }}>{attendee.name}</td>
+                          <td style={{ padding: '8px' }}>{attendee.email}</td>
+                          <td style={{ padding: '8px' }}>{attendee.barangay}</td>
+                          <td style={{ padding: '8px' }}>{new Date(attendee.attend_at).toLocaleString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: '24px 0', color: '#888' }}>No attendees yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </Paper>
             </Box>
           )}
         </DialogContent>

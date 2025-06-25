@@ -1562,12 +1562,12 @@ const SDashboard = () => {
             </Paper>
           </div>
           <div className="dashboard-chart-box">
-            <Paper elevation={3} sx={{ p: 2, mb: 2, mt: { xs: 0, sm: 3 } }}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2, mt: 3 }}>
               <Typography variant="h6" mb={1}>Application Status</Typography>
               <ReactECharts 
                 ref={(e) => { chartsRef.current[1] = e; }}
                 option={ageDistributionOption}
-                style={{ height: '300px', width: '100%' }}
+                style={{ height: '350px', width: '100%' }}
               />
             </Paper>
           </div>

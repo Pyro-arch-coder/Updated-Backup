@@ -1135,7 +1135,7 @@ const Dashboard = () => {
                 <ReactECharts
                   ref={(e) => { chartsRef.current[1] = e; }}
                   option={genderOption}
-                  style={{ height: '300px', width: '100%' }}
+                  style={{ height: '400px', width: '100%' }}
                 />
               </Paper>
             </Box>

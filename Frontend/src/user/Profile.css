@@ -1447,6 +1447,7 @@
   
   .children-section {
     margin-top: 0;
+    width: 100%;
   }
 }
 
@@ -1491,6 +1492,7 @@
   
   .details-section, .user-profile-announcements {
     padding: 16px;
+    width: 100%;
   }
 }
 
