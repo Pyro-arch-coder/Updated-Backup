@@ -20,7 +20,8 @@ import {
   faTimes,
   faSignOutAlt,
   faEdit,
-  faDownload
+  faDownload,
+  faStar
 } from '@fortawesome/free-solid-svg-icons';
 import './Profile.css';
 import avatar from '../assets/avatar.jpg';
@@ -104,6 +105,14 @@ const Profile = () => {
     attended: false
   });
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [eventRatings, setEventRatings] = useState([]);
+  const [userRating, setUserRating] = useState(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [fetchingRatings, setFetchingRatings] = useState(false);
+  const [hasAttended, setHasAttended] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -942,6 +951,134 @@ const Profile = () => {
     }
   };
 
+  const openEventModal = async (event) => {
+    setSelectedEvent(event);
+    setShowEventModal(true);
+    setUserRating(0);
+    setFetchingRatings(true);
+    setHasAttended(false);
+    setHasRated(false);
+    try {
+      const attendanceRes = await axios.post(`${API_BASE_URL}/api/events/checkAttendance`, {
+        eventId: event.id,
+        userId: user.code_id
+      });
+      setHasAttended(attendanceRes.data.attended === true);
+      const res = await axios.get(`${API_BASE_URL}/api/events/${event.id}/ratings`);
+      setEventRatings(res.data);
+      const myRating = res.data.find(r => r.user_id === user.code_id);
+      if (myRating) {
+        setUserRating(myRating.rating);
+        setHasRated(true);
+      } else {
+        setHasRated(false);
+      }
+    } catch {
+      setEventRatings([]);
+      setHasAttended(false);
+      setHasRated(false);
+    } finally {
+      setFetchingRatings(false);
+    }
+  };
+
+  const closeEventModal = () => {
+    setShowEventModal(false);
+    setSelectedEvent(null);
+    setUserRating(0);
+    setEventRatings([]);
+  };
+
+  const submitRating = async () => {
+    if (!userRating) return toast.error('Please select a rating');
+    setSubmittingRating(true);
+    try {
+      await axios.post(`${API_BASE_URL}/api/events/${selectedEvent.id}/rate`, {
+        userId: user.code_id,
+        rating: userRating
+      });
+      toast.success('Thank you for your feedback!');
+      closeEventModal();
+    } catch {
+      toast.error('Failed to submit rating');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
+  const averageRating = eventRatings.length > 0 ? (eventRatings.reduce((a, b) => a + b.rating, 0) / eventRatings.length).toFixed(1) : null;
+
+  const EventModal = () => selectedEvent && (
+    <div className="modal-overlay" style={{zIndex: 3000}}>
+      <div className="modal-content" style={{maxWidth: 480, borderRadius: 16, boxShadow: '0 8px 32px rgba(44,109,46,0.18)', padding: 0, overflow: 'hidden'}}>
+        <div className="modal-header" style={{background: '#e8f5e9', padding: '1.5rem 2rem', borderBottom: '1px solid #f0f0f0'}}>
+          <h2 style={{margin: 0, fontWeight: 700, color: '#2E7D32', fontSize: '1.5rem'}}>{selectedEvent.title}</h2>
+          <button className="close-btn" onClick={closeEventModal} style={{fontSize: 22, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer'}}>&times;</button>
+        </div>
+        <div className="modal-body" style={{padding: '2rem'}}>
+          <div style={{marginBottom: 20}}>
+            <div style={{fontWeight: 600, color: '#1976d2', fontSize: 15}}>{formatDate(selectedEvent.startDate)} {formatTime(selectedEvent.startTime)}</div>
+            
+            Location: <span style={{color: '#555', fontSize: 14, marginBottom: 5,fontWeight: 700}}>{selectedEvent.location}</span>
+            
+            <div style={{margin: '5px 0 18px', fontWeight: 500, fontSize: 14}}>
+            Description: <span style={{color: '#333', fontSize: 15, marginBottom: 10, fontWeight: 700}}>{selectedEvent.description}</span>
+            </div>
+            
+            <div style={{margin: '10px 0 18px', color: '#2E7D32', fontWeight: 500, fontSize: 20}}>
+              Status: <span style={{fontWeight: 700}}>{selectedEvent.status}</span>
+            </div>
+            
+            <div style={{marginBottom: 18}}>
+              <div style={{fontWeight: 600, color: '#2E7D32', fontSize: 15, marginBottom: 4}}>Event Rating</div>
+              {fetchingRatings ? (
+                <div style={{color: '#888'}}>Loading ratings...</div>
+              ) : (
+                <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8}}>
+                  <span style={{fontSize: 18, color: '#1976d2', fontWeight: 600}}>Average:</span>
+                  <span style={{fontSize: 18, color: '#2E7D32', fontWeight: 700}}>{averageRating || 'N/A'}</span>
+                  <FontAwesomeIcon icon={faStar} style={{color: '#FFD600', fontSize: 18}} />
+                  <span style={{fontSize: 13, color: '#888'}}>({eventRatings.length} rating{eventRatings.length !== 1 ? 's' : ''})</span>
+                </div>
+              )}
+            </div>
+            <div style={{marginBottom: 18}}>
+              {hasAttended ? (
+                <>
+                  <div style={{fontWeight: 600, color: '#2E7D32', fontSize: 15, marginBottom: 4}}>Your Rating</div>
+                  <div style={{display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8}}>
+                    {[1,2,3,4,5].map(star => (
+                      <FontAwesomeIcon
+                        key={star}
+                        icon={faStar}
+                        style={{
+                          color: userRating >= star ? '#FFD600' : '#e0e0e0',
+                          fontSize: 28,
+                          cursor: hasRated ? 'not-allowed' : 'pointer',
+                          transition: 'color 0.2s'
+                        }}
+                        onClick={() => !hasRated && setUserRating(star)}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={submitRating}
+                    disabled={submittingRating || !userRating || hasRated}
+                    style={{background: hasRated ? '#bdbdbd' : 'linear-gradient(90deg, #2E7D32, #4CAF50)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 600, fontSize: 16, cursor: hasRated ? 'not-allowed' : 'pointer', width: '100%', marginTop: 6, boxShadow: '0 2px 8px rgba(44,109,46,0.08)'}}
+                  >
+                    {hasRated ? 'Already Rated' : (submittingRating ? 'Submitting...' : 'Submit Rating')}
+                  </button>
+                </>
+              ) : (
+                <div style={{color:'#888',fontWeight:500,fontSize:16,marginTop:12}}>You must attend this event to rate it.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
@@ -1570,7 +1707,7 @@ const Profile = () => {
                         });
                         return filteredEvents.length > 0 ? (
                           filteredEvents.map((event, index) => (
-                            <div key={index} className="profile-announcement-card" onClick={() => checkAttendance(event.id)}>
+                            <div key={index} className="profile-announcement-card" onClick={() => openEventModal(event)}>
                               <div className="profile-announcement-content">
                                 <h4>{event.title}</h4>
                                 <p>{event.description}</p>
@@ -1587,6 +1724,7 @@ const Profile = () => {
                         );
                       })()}
                     </div>
+                    {showEventModal && <EventModal />}
                   </div>
                 )}
               </div>

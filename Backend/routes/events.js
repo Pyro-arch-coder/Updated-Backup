@@ -523,4 +523,29 @@ router.post('/checkAttendance', async (req, res) => {
   }
 });
 
+router.post('/:eventId/rate', async (req, res) => {
+  const { eventId } = req.params;
+  const { userId, rating } = req.body;
+  if (!userId || !rating) return res.status(400).json({ error: 'Missing required fields' });
+  try {
+    await queryDatabase(
+      'INSERT INTO event_ratings (event_id, user_id, rating) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE rating = VALUES(rating), created_at = CURRENT_TIMESTAMP',
+      [eventId, userId, rating]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to submit rating' });
+  }
+});
+
+router.get('/:eventId/ratings', async (req, res) => {
+  const { eventId } = req.params;
+  try {
+    const ratings = await queryDatabase('SELECT * FROM event_ratings WHERE event_id = ?', [eventId]);
+    res.json(ratings);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch ratings' });
+  }
+});
+
 module.exports = router;

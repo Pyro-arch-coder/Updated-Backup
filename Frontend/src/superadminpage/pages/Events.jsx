@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
-import { FaTimes, FaQrcode } from 'react-icons/fa';
+import { FaTimes, FaQrcode, FaStar } from 'react-icons/fa';
 import QrScanner from 'qr-scanner';
 import santaMariaBarangays from '../../data/santaMariaBarangays.json';
 
@@ -97,6 +97,7 @@ const Events = () => {
   const [filterDate, setFilterDate] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [eventRatings, setEventRatings] = useState({});
 
   // Calculate tomorrow's date in YYYY-MM-DD format
   const getTomorrow = () => {
@@ -109,6 +110,28 @@ const Events = () => {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  useEffect(() => {
+    const fetchAllRatings = async () => {
+      const ratingsObj = {};
+      for (const event of events) {
+        try {
+          const res = await axios.get(`${API_BASE_URL}/api/events/${event.id}/ratings`);
+          const ratings = res.data;
+          if (ratings.length > 0) {
+            const avg = (ratings.reduce((a, b) => a + b.rating, 0) / ratings.length).toFixed(1);
+            ratingsObj[event.id] = avg;
+          } else {
+            ratingsObj[event.id] = null;
+          }
+        } catch {
+          ratingsObj[event.id] = null;
+        }
+      }
+      setEventRatings(ratingsObj);
+    };
+    if (events.length > 0) fetchAllRatings();
+  }, [events]);
 
   // Add debounced search effect
   useEffect(() => {
@@ -862,6 +885,7 @@ const Events = () => {
               <TableRow>
                 <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>ID</TableCell>
                 <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Title</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Avg Rating</TableCell>
                 <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -874,6 +898,15 @@ const Events = () => {
                 >
                   <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>{page * rowsPerPage + index + 1}</TableCell>
                   <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>{event.title}</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 }, color: '#FFD600', fontWeight: 700 }}>
+                    {eventRatings[event.id] ? (
+                      <span style={{display:'flex',alignItems:'center',gap:4}}>
+                        {eventRatings[event.id]} <FaStar style={{color:'#FFD600',marginLeft:2}}/>
+                      </span>
+                    ) : (
+                      <span style={{color:'#888'}}>N/A</span>
+                    )}
+                  </TableCell>
                   <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>
                     <Button
                       variant="contained"

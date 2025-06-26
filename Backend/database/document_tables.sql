@@ -88,3 +88,12 @@ CREATE TABLE barangay_cert_documents (
     INDEX idx_code_id (code_id)
 );
 
+CREATE TABLE IF NOT EXISTS event_ratings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  user_id VARCHAR(255) NOT NULL,
+  rating INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_event_user (event_id, user_id)
+);
+
