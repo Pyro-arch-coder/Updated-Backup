@@ -151,7 +151,7 @@ router.get('/all', async (req, res) => {
 
 // Create new event
 router.post('/', async (req, res) => {
-  const { title, description, startDate, startTime, endTime, location, status, visibility, barangay } = req.body;
+  const { title, description, startDate, startTime, endTime, location, status, visibility, barangay, image } = req.body;
   
   try {
     console.log("\n=== Event Creation Debug ===");
@@ -188,13 +188,18 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validation: require image
+    if (!image || image.trim() === '') {
+      return res.status(400).json({ error: 'Image is required' });
+    }
+
     const result = await queryDatabase(
-      'INSERT INTO events (title, description, startDate, startTime, endTime, location, status, visibility, barangay) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [title, description, startDate, startTime, endTime, location, status || 'Upcoming', visibility || 'everyone', barangayValue]
+      'INSERT INTO events (title, description, startDate, startTime, endTime, location, status, visibility, barangay, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, description, startDate, startTime, endTime, location, status || 'Upcoming', visibility || 'everyone', barangayValue, image]
     );
     
     console.log("\n=== SQL Debug ===");
-    console.log("Values to insert:", [title, description, startDate, startTime, endTime, location, status || 'Upcoming', visibility || 'everyone', barangayValue]);
+    console.log("Values to insert:", [title, description, startDate, startTime, endTime, location, status || 'Upcoming', visibility || 'everyone', barangayValue, image]);
     
     res.status(201).json({
       id: result.insertId,
@@ -206,7 +211,8 @@ router.post('/', async (req, res) => {
       location,
       status,
       visibility,
-      barangay: barangayValue
+      barangay: barangayValue,
+      image
     });
   } catch (error) {
     console.error('Error creating event:', error);
@@ -217,7 +223,7 @@ router.post('/', async (req, res) => {
 // Update event
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, startDate, startTime, endTime, location, status, visibility, barangay } = req.body;
+  const { title, description, startDate, startTime, endTime, location, status, visibility, barangay, image } = req.body;
   
   try {
     // Check for time conflicts
@@ -247,9 +253,14 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    // Validation: require image
+    if (!image || image.trim() === '') {
+      return res.status(400).json({ error: 'Image is required' });
+    }
+
     await queryDatabase(
-      'UPDATE events SET title = ?, description = ?, startDate = ?, startTime = ?, endTime = ?, location = ?, status = ?, visibility = ?, barangay = ? WHERE id = ?',
-      [title, description, startDate, startTime, endTime, location, status, visibility, barangay, id]
+      'UPDATE events SET title = ?, description = ?, startDate = ?, startTime = ?, endTime = ?, location = ?, status = ?, visibility = ?, barangay = ?, image = ?, updated_at = NOW() WHERE id = ?',
+      [title, description, startDate, startTime, endTime, location, status, visibility, barangay, image, id]
     );
     
     res.json({
@@ -262,7 +273,8 @@ router.put('/:id', async (req, res) => {
       location,
       status,
       visibility,
-      barangay
+      barangay,
+      image
     });
   } catch (error) {
     console.error('Error updating event:', error);
@@ -389,110 +401,6 @@ router.post('/:eventId/attendees', async (req, res) => {
       error: 'Failed to add attendee', 
       details: error.message 
     });
-  }
-});
-
-// Update an event
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { 
-      title, 
-      description, 
-      startDate, 
-      startTime, 
-      endTime, 
-      location, 
-      status, 
-      visibility,
-      barangay 
-    } = req.body;
-    
-    console.log("\n=== Event Update Debug ===");
-    console.log("Event ID:", id);
-    console.log("Raw request body:", req.body);
-    console.log("Extracted barangay value:", barangay);
-    console.log("Barangay type:", typeof barangay);
-    
-    // Ensure barangay has a value
-    const barangayValue = (!barangay || barangay === '') ? 'All' : barangay;
-    console.log("Final barangay value:", barangayValue);
-    
-    // Check for time conflicts
-    const { hasConflict, conflictingEvent } = await checkTimeConflict(
-      startDate,
-      startTime,
-      endTime,
-      id
-    );
-
-    if (hasConflict) {
-      return res.status(409).json({
-        error: 'Time Conflict',
-        message: `There must be a 1-hour gap between events. Conflicts with event "${conflictingEvent.title}"`,
-        conflictingEvent: conflictingEvent
-      });
-    }
-
-    // Validate end time is after start time
-    const startMinutes = timeToMinutes(startTime);
-    const endMinutes = timeToMinutes(endTime);
-    
-    if (endMinutes <= startMinutes) {
-      return res.status(400).json({
-        error: 'Invalid Time',
-        message: 'End time must be after start time'
-      });
-    }
-
-    const query = `
-      UPDATE events 
-      SET 
-        title = ?,
-        description = ?,
-        startDate = ?,
-        startTime = ?,
-        endTime = ?,
-        location = ?,
-        status = ?,
-        visibility = ?,
-        barangay = ?,
-        updated_at = NOW()
-      WHERE id = ?
-    `;
-    
-    const values = [
-      title,
-      description,
-      startDate,
-      startTime,
-      endTime,
-      location,
-      status || 'Upcoming',
-      visibility || 'everyone',
-      barangayValue,  // Use the sanitized value
-      id
-    ];
-
-    console.log("\n=== SQL Debug ===");
-    console.log("Query:", query);
-    console.log("Values to update:", values);
-    console.log("Barangay value:", barangay);
-    
-    const result = await queryDatabase(query, values);
-    
-    // Verify what was actually saved
-    const savedEvent = await queryDatabase('SELECT * FROM events WHERE id = ?', [id]);
-    console.log("\n=== Saved Event Debug ===");
-    console.log("Updated event data:", savedEvent[0]);
-    console.log("Updated barangay value:", savedEvent[0].barangay);
-    console.log("Updated barangay type:", typeof savedEvent[0].barangay);
-    console.log("=======================\n");
-    
-    res.json({ message: 'Event updated successfully' });
-  } catch (error) {
-    console.error('Error updating event:', error);
-    res.status(500).json({ error: 'Failed to update event' });
   }
 });
 

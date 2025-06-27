@@ -1708,6 +1708,16 @@ const Profile = () => {
                         return filteredEvents.length > 0 ? (
                           filteredEvents.map((event, index) => (
                             <div key={index} className="profile-announcement-card" onClick={() => openEventModal(event)}>
+                              {/* Event Image Banner */}
+                              {event.image && (
+                                <div style={{ width: '100%', height: 160, overflow: 'hidden', borderTopLeftRadius: 12, borderTopRightRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                                  <img
+                                    src={event.image}
+                                    alt="Event"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
+                                  />
+                                </div>
+                              )}
                               <div className="profile-announcement-content">
                                 <h4>{event.title}</h4>
                                 <p>{event.description}</p>

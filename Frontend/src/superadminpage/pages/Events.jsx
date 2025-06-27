@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import axios from 'axios';
-import { FaTimes, FaQrcode, FaStar } from 'react-icons/fa';
+import { FaTimes, FaQrcode } from 'react-icons/fa';
 import QrScanner from 'qr-scanner';
 import santaMariaBarangays from '../../data/santaMariaBarangays.json';
 
@@ -97,7 +97,11 @@ const Events = () => {
   const [filterDate, setFilterDate] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [eventRatings, setEventRatings] = useState({});
+  const CLOUD_NAME = 'dskj7oxr7';
+  const UPLOAD_PRESET = 'soloparent';
+  const [eventImage, setEventImage] = useState(null);
+  const [eventImagePreview, setEventImagePreview] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Calculate tomorrow's date in YYYY-MM-DD format
   const getTomorrow = () => {
@@ -110,28 +114,6 @@ const Events = () => {
   useEffect(() => {
     fetchEvents();
   }, []);
-
-  useEffect(() => {
-    const fetchAllRatings = async () => {
-      const ratingsObj = {};
-      for (const event of events) {
-        try {
-          const res = await axios.get(`${API_BASE_URL}/api/events/${event.id}/ratings`);
-          const ratings = res.data;
-          if (ratings.length > 0) {
-            const avg = (ratings.reduce((a, b) => a + b.rating, 0) / ratings.length).toFixed(1);
-            ratingsObj[event.id] = avg;
-          } else {
-            ratingsObj[event.id] = null;
-          }
-        } catch {
-          ratingsObj[event.id] = null;
-        }
-      }
-      setEventRatings(ratingsObj);
-    };
-    if (events.length > 0) fetchAllRatings();
-  }, [events]);
 
   // Add debounced search effect
   useEffect(() => {
@@ -325,7 +307,6 @@ const Events = () => {
   const handleInputChange = (e) => {
     const { name } = e.target;
     let value = e.target.value;
-    console.log(`Input changed - name: ${name}, value: ${value}`);
 
     if (name === 'startDate') {
       // Validate dates
@@ -362,33 +343,83 @@ const Events = () => {
         ...prev,
         [name]: value
       };
-      console.log('Updated form data:', newData);
       return newData;
     });
   };
 
-  const handleAddEvent = async (e) => {
-    e.preventDefault();
-    // Validation: disallow today
-    const today = new Date();
-    const selected = new Date(formData.startDate);
-    today.setHours(0, 0, 0, 0);
-    selected.setHours(0, 0, 0, 0);
-    if (selected.getTime() === today.getTime()) {
-      setShowDateTodayError(true);
+  const handleEventImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'].includes(file.type)) {
+      toast.error('Please upload only image files (JPG, PNG, GIF, WEBP)');
       return;
     }
-    try {
-      // Validate end time is after start time
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size should not exceed 5MB');
+      return;
+    }
+    setEventImage(file);
+    setEventImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadEventImageToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    formData.append('folder', 'soloparent/events');
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (!data.secure_url) throw new Error('Failed to upload image');
+    return data.secure_url;
+  };
+
+  const validateEventForm = () => {
+    const requiredFields = [
+      { key: 'title', label: 'Title' },
+      { key: 'description', label: 'Description' },
+      { key: 'startDate', label: 'Date' },
+      { key: 'startTime', label: 'Start Time' },
+      { key: 'endTime', label: 'End Time' },
+      { key: 'location', label: 'Location' },
+      { key: 'barangay', label: 'Barangay' },
+      { key: 'visibility', label: 'Visibility' },
+    ];
+    for (const field of requiredFields) {
+      if (!formData[field.key] || formData[field.key].toString().trim() === '') {
+        toast.error(`${field.label} is required`);
+        return false;
+      }
+    }
+    if (!eventImage && !eventImagePreview) {
+      toast.error('Event photo is required');
+      return false;
+    }
+    // Time logic (already checked elsewhere, but double check)
+    if (formData.startTime && formData.endTime) {
       const startMinutes = timeToMinutes(formData.startTime);
       const endMinutes = timeToMinutes(formData.endTime);
-      
       if (endMinutes <= startMinutes) {
         toast.error('End time must be after start time');
-        return;
+        return false;
       }
+    }
+    return true;
+  };
 
-      const eventData = { ...formData };
+  const handleAddEvent = async (e) => {
+    e.preventDefault();
+    if (!validateEventForm()) return;
+    try {
+      let imageUrl = '';
+      if (eventImage) {
+        setIsUploadingImage(true);
+        imageUrl = await uploadEventImageToCloudinary(eventImage);
+        setIsUploadingImage(false);
+      }
+      const eventData = { ...formData, image: imageUrl };
       const response = await axios.post(`${API_BASE_URL}/api/events`, eventData);
       
       if (response.data) {
@@ -409,8 +440,11 @@ const Events = () => {
         setShowSuccessModal(true);
         setTimeout(() => setShowSuccessModal(false), 2000);
         fetchEvents();
+        setEventImage(null);
+        setEventImagePreview('');
       }
     } catch (error) {
+      setIsUploadingImage(false);
       console.error('Error adding event:', error);
       if (error.response?.data?.error === 'Time Conflict' && error.response?.data?.conflictingEvent) {
         setConflictInfo(error.response.data.conflictingEvent);
@@ -444,7 +478,13 @@ const Events = () => {
         return;
       }
 
-      const eventData = { ...formData };
+      let imageUrl = selectedEvent?.image || '';
+      if (eventImage) {
+        setIsUploadingImage(true);
+        imageUrl = await uploadEventImageToCloudinary(eventImage);
+        setIsUploadingImage(false);
+      }
+      const eventData = { ...formData, image: imageUrl };
       const response = await axios.put(`${API_BASE_URL}/api/events/${selectedEvent.id}`, eventData);
       
       if (response.data) {
@@ -465,8 +505,11 @@ const Events = () => {
         setShowSuccessModal(true);
         setTimeout(() => setShowSuccessModal(false), 2000);
         fetchEvents();
+        setEventImage(null);
+        setEventImagePreview('');
       }
     } catch (error) {
+      setIsUploadingImage(false);
       console.error('Error updating event:', error);
       if (error.response?.data?.error === 'Time Conflict' && error.response?.data?.conflictingEvent) {
         setConflictInfo(error.response.data.conflictingEvent);
@@ -821,6 +864,26 @@ const Events = () => {
     </Dialog>
   );
 
+  // When opening edit modal, set preview if image exists
+  useEffect(() => {
+    if (showEditModal && selectedEvent?.image) {
+      setEventImagePreview(selectedEvent.image);
+      setEventImage(null);
+    }
+    if (!showEditModal) {
+      setEventImagePreview('');
+      setEventImage(null);
+    }
+  }, [showEditModal, selectedEvent]);
+
+  // When opening add modal, reset image
+  useEffect(() => {
+    if (showAddModal) {
+      setEventImagePreview('');
+      setEventImage(null);
+    }
+  }, [showAddModal]);
+
   return (
     <Box sx={{ p: { xs: 0.5, sm: 3 } }}>
       <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
@@ -885,7 +948,7 @@ const Events = () => {
               <TableRow>
                 <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>ID</TableCell>
                 <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Title</TableCell>
-                <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Avg Rating</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Status</TableCell>
                 <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -898,14 +961,8 @@ const Events = () => {
                 >
                   <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>{page * rowsPerPage + index + 1}</TableCell>
                   <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>{event.title}</TableCell>
-                  <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 }, color: '#FFD600', fontWeight: 700 }}>
-                    {eventRatings[event.id] ? (
-                      <span style={{display:'flex',alignItems:'center',gap:4}}>
-                        {eventRatings[event.id]} <FaStar style={{color:'#FFD600',marginLeft:2}}/>
-                      </span>
-                    ) : (
-                      <span style={{color:'#888'}}>N/A</span>
-                    )}
+                  <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>
+                    <Chip label={event.status} color={getStatusChipColor(event.status)} size="small" sx={{ fontWeight: 600, fontSize: '0.9em', textTransform: 'capitalize' }} />
                   </TableCell>
                   <TableCell sx={{ fontSize: { xs: '0.8rem', sm: '1rem' }, py: { xs: 0.5, sm: 1 } }}>
                     <Button
@@ -1141,6 +1198,52 @@ const Events = () => {
                 InputLabelProps={{ style: { fontWeight: 600 } }}
               />
             </Box>
+            <Box sx={{ gridColumn: '1 / -1' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Event Photo</Typography>
+              <Box
+                sx={{
+                  width: 250,
+                  height: 250,
+                  border: '2px dashed #16C47F',
+                  borderRadius: 2,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                  mb: 2,
+                  mx: 'auto',
+                  position: 'relative',
+                  background: '#f8fafc',
+                }}
+              >
+                {eventImagePreview ? (
+                  <img src={eventImagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <Typography variant="body2" color="textSecondary">Image Preview (250x250)</Typography>
+                )}
+                {eventImagePreview && (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="contained"
+                    sx={{ position: 'absolute', top: 8, right: 8, minWidth: 0, width: 32, height: 32, borderRadius: '50%' }}
+                    onClick={() => { setEventImage(null); setEventImagePreview(''); }}
+                  >
+                    <FaTimes />
+                  </Button>
+                )}
+              </Box>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<i className="fas fa-upload"></i>}
+                sx={{ borderRadius: 2, px: 2, py: 1, textTransform: 'none', fontWeight: 600, fontSize: '1rem', borderColor: '#16C47F', color: '#16C47F', '&:hover': { backgroundColor: 'rgba(22, 196, 127, 0.1)', borderColor: '#14a36f', color: '#14a36f' }, minWidth: 200, display: 'block', mx: 'auto', mb: 2 }}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? 'Uploading...' : 'Choose Image'}
+                <input type="file" accept="image/*" onChange={handleEventImageChange} style={{ display: 'none' }} />
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -1151,6 +1254,7 @@ const Events = () => {
             onClick={handleAddEvent}
             variant="contained" 
             sx={{ backgroundColor: '#16C47F', '&:hover': { backgroundColor: '#14a36f' } }}
+            disabled={isUploadingImage}
           >
             Save Event
           </Button>
@@ -1290,6 +1394,52 @@ const Events = () => {
                   <MenuItem value="Cancelled">Cancelled</MenuItem>
                 </Select>
               </FormControl>
+            </Box>
+            <Box sx={{ gridColumn: '1 / -1' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Event Photo</Typography>
+              <Box
+                sx={{
+                  width: 250,
+                  height: 250,
+                  border: '2px dashed #16C47F',
+                  borderRadius: 2,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                  mb: 2,
+                  mx: 'auto',
+                  position: 'relative',
+                  background: '#f8fafc',
+                }}
+              >
+                {eventImagePreview ? (
+                  <img src={eventImagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <Typography variant="body2" color="textSecondary">Image Preview (250x250)</Typography>
+                )}
+                {eventImagePreview && (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="contained"
+                    sx={{ position: 'absolute', top: 8, right: 8, minWidth: 0, width: 32, height: 32, borderRadius: '50%' }}
+                    onClick={() => { setEventImage(null); setEventImagePreview(''); }}
+                  >
+                    <FaTimes />
+                  </Button>
+                )}
+              </Box>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<i className="fas fa-upload"></i>}
+                sx={{ borderRadius: 2, px: 2, py: 1, textTransform: 'none', fontWeight: 600, fontSize: '1rem', borderColor: '#16C47F', color: '#16C47F', '&:hover': { backgroundColor: 'rgba(22, 196, 127, 0.1)', borderColor: '#14a36f', color: '#14a36f' }, minWidth: 200, display: 'block', mx: 'auto', mb: 2 }}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? 'Uploading...' : 'Choose Image'}
+                <input type="file" accept="image/*" onChange={handleEventImageChange} style={{ display: 'none' }} />
+              </Button>
             </Box>
           </Box>
         </DialogContent>
@@ -1493,6 +1643,23 @@ const Events = () => {
         <DialogContent>
           {selectedEvent && (
             <Box sx={{ mt: 2 }}>
+              {/* Event Image Display */}
+              {selectedEvent.image && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                  <img
+                    src={selectedEvent.image}
+                    alt="Event"
+                    style={{
+                      maxWidth: 320,
+                      maxHeight: 220,
+                      borderRadius: 12,
+                      boxShadow: '0 2px 12px rgba(44,109,46,0.10)',
+                      objectFit: 'cover',
+                      border: '1px solid #e0e0e0',
+                    }}
+                  />
+                </Box>
+              )}
               <Box sx={{
                 display: 'grid',
                 gap: '16px',
