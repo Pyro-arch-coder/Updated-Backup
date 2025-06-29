@@ -2,7 +2,7 @@
   display: block;
   min-height: 100vh;
   background: var(--background, #f5f7fa);
-  padding: 80px 14px 14px;
+  padding: 20px 14px 14px;
   max-width: 1400px;
   margin: 0 auto;
 }

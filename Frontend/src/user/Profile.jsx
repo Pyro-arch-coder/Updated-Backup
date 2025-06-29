@@ -1059,7 +1059,7 @@ const Profile = () => {
       <div className="modal-content" style={{maxWidth: 480, borderRadius: 16, boxShadow: '0 8px 32px rgba(44,109,46,0.18)', padding: 0, overflow: 'hidden'}}>
         <div className="modal-header" style={{background: '#e8f5e9', padding: '1.5rem 2rem', borderBottom: '1px solid #f0f0f0'}}>
           <h2 style={{margin: 0, fontWeight: 700, color: '#2E7D32', fontSize: '1.5rem'}}>{selectedEvent.title}</h2>
-          <button className="close-btn" onClick={closeEventModal} style={{fontSize: 22, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer'}}>&times;</button>
+          <button className="close-btn-attendace" onClick={closeEventModal} style={{fontSize: 22, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer'}}>&times;</button>
         </div>
         <div className="modal-body" style={{padding: '2rem'}}>
           <div style={{marginBottom: 20}}>
