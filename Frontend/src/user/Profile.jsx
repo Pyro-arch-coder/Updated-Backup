@@ -21,7 +21,8 @@ import {
   faSignOutAlt,
   faEdit,
   faDownload,
-  faStar
+  faStar,
+  faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 import './Profile.css';
 import avatar from '../assets/avatar.jpg';
@@ -58,7 +59,6 @@ const calculateAge = (birthdate) => {
   
   return age;
 };
-
 const Profile = () => {
   const [showResendModal, setShowResendModal] = useState(false);
   const [declinedInfo, setDeclinedInfo] = useState(null);
@@ -113,6 +113,8 @@ const Profile = () => {
   const [fetchingRatings, setFetchingRatings] = useState(false);
   const [hasAttended, setHasAttended] = useState(false);
   const [hasRated, setHasRated] = useState(false);
+  const [childRequests, setChildRequests] = useState([]);
+  const [loadingChildRequests, setLoadingChildRequests] = useState(false);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -1008,6 +1010,50 @@ const Profile = () => {
 
   const averageRating = eventRatings.length > 0 ? (eventRatings.reduce((a, b) => a + b.rating, 0) / eventRatings.length).toFixed(1) : null;
 
+  // Add child functions
+  const calculateChildAge = (birthdate) => {
+    if (!birthdate) return '';
+    const birthDateObj = new Date(birthdate);
+    const today = new Date();
+    
+    // Check if birthdate is in the future
+    if (birthDateObj > today) {
+      return 'Invalid date';
+    }
+    
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const monthDiff = today.getMonth() - birthDateObj.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Function to fetch child requests
+  const fetchChildRequests = async () => {
+    if (!user?.code_id) return;
+    
+    setLoadingChildRequests(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/children/user/${user.code_id}`, { withCredentials: true });
+      if (response.data.success) {
+        setChildRequests(response.data.childRequests);
+      }
+    } catch (error) {
+      console.error('Error fetching child requests:', error);
+    } finally {
+      setLoadingChildRequests(false);
+    }
+  };
+
+  // Fetch child requests when user data is available
+  useEffect(() => {
+    if (user?.code_id) {
+      fetchChildRequests();
+    }
+  }, [user?.code_id]);
+
   const EventModal = () => selectedEvent && (
     <div className="modal-overlay" style={{zIndex: 3000}}>
       <div className="modal-content" style={{maxWidth: 480, borderRadius: 16, boxShadow: '0 8px 32px rgba(44,109,46,0.18)', padding: 0, overflow: 'hidden'}}>
@@ -1450,26 +1496,36 @@ const Profile = () => {
                         <div className="children-section">
                           <div className="section-header">
                             <h2>Children</h2>
+                            
                           </div>
+                          
+                          {/* Existing Children */}
                           <div className="children-list">
                             {user?.familyMembers?.length > 0 ? (
                               <div className="family-members">
                                 <div className="family-list">
                                   {user.familyMembers.map((member, index) => (
                                     <div key={index} className="family-member">
-                                      <strong>{member.family_member_name}</strong>
+                                      <div className="member-header">
+                                        <strong>{member.family_member_name}</strong>
+                                        <span className="member-id">ID: {member.id || index + 1}</span>
+                                      </div>
                                       <div className="member-details">
                                         <span>Age: {member.age}</span>
                                         <span>Education: {member.educational_attainment}</span>
+                                        {member.birthdate && (
+                                          <span>Birthdate: {new Date(member.birthdate).toLocaleDateString('en-US', { dateStyle: 'medium' })}</span>
+                                        )}
                                       </div>
                                     </div>
                                   ))}
                                 </div>
                               </div>
-                            ) : (
-                              <p>No children information available.</p>
-                            )}
+                            ) : null}
                           </div>
+
+                          
+                          
                         </div>
                       </>
                     )}
@@ -2866,3 +2922,4 @@ function ResendApplicationModal({ onClose }) {
 }
 
 export default Profile;
+

@@ -177,7 +177,111 @@
   grid-area: children;
   width: 88%;
   margin-top: -12px;
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+
+.children-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.children-section .section-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2E7D32;
+}
+
+
+
+.children-list {
+  margin-top: 16px;
+}
+
+.family-members {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.family-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.family-member {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.family-member:hover {
+  border-color: #2e7d32;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.1);
+}
+
+.member-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.member-header strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.member-id {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.member-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.member-details span {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.no-children {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.no-children p {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #9ca3af;
+}
+
+
 
 @media (max-width: 1024px) {
   .content-grid {
@@ -382,7 +486,7 @@
 }
 
 .detail-item {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   padding: 16px;
   border-radius: 8px;
   transition: all 0.3s ease;
@@ -769,7 +873,8 @@
   vertical-align: middle;
 }
 @keyframes uploadProfileSpin {
-  to { transform: rotate(360deg); }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 600px) {
@@ -901,20 +1006,7 @@
   font-size: 14px;
 }
 
-.add-child-button {
-  background: none;
-  border: none;
-  color: #2E7D32;
-  cursor: pointer;
-  font-size: 16px;
-  opacity: 0.7;
-  transition: all 0.2s ease;
-}
 
-.add-child-button:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
 
 .profile-tabs {
   display: flex;
@@ -1755,4 +1847,9 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
