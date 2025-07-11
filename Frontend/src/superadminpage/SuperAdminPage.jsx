@@ -8,6 +8,7 @@ import AnnouncementManagement from './pages/AnnouncementManagement';
 import Events from './pages/Events';
 import ForumManagement from './pages/ForumManagement';
 import SoloParentManagement from './pages/SoloParentManagement';
+import SNewChildRequest from './pages/SNewChildRequest';
 import Box from '@mui/material/Box';
 
 export default function SuperAdminPage() {
@@ -22,6 +23,7 @@ export default function SuperAdminPage() {
           <Route path="/events" element={<Events />} />
           <Route path="/forums" element={<ForumManagement />} />
           <Route path="/soloparents" element={<SoloParentManagement />} />
+          <Route path="/newchildrequests" element={<SNewChildRequest />} />
           <Route path="*" element={<Navigate to="/superadminpage" replace />} />
         </Routes>
       </Layout>

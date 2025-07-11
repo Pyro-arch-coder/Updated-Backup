@@ -786,7 +786,7 @@ app.put("/admins/:id", async (req, res) => {
 app.get('/pendingUsers', async (req, res) => {
   try {
     const users = await queryDatabase(`
-      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id,
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id, u.approval,
              s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, 
              s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
              s1.civil_status, s1.occupation, s1.religion, s1.company, 
@@ -801,7 +801,117 @@ app.get('/pendingUsers', async (req, res) => {
       LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
       LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
       LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
-      WHERE u.status = 'Pending'
+      WHERE u.approval = 'Approved' AND u.status = 'Pending'
+    `);
+
+    if (users.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const codeIds = users.map(user => user.code_id);
+
+    const familyQuery = `
+      SELECT code_id, 
+             family_member_name,
+             birthdate,
+             educational_attainment,
+             age
+      FROM step2_family_occupation
+      WHERE code_id IN (?)
+    `;
+
+    const familyMembers = await queryDatabase(familyQuery, [codeIds]);
+
+    const familyByUser = {};
+    familyMembers.forEach(member => {
+      if (!familyByUser[member.code_id]) {
+        familyByUser[member.code_id] = [];
+      }
+      familyByUser[member.code_id].push(member);
+    });
+
+    // Fetch documents for each user from all document tables
+    const documentTables = [
+      'psa_documents',
+      'itr_documents', 
+      'med_cert_documents', 
+      'marriage_documents', 
+      'cenomar_documents', 
+      'death_cert_documents'
+    ];
+    
+    let allDocuments = [];
+    
+    // Query each document table and combine results
+    for (const table of documentTables) {
+      const documentsQuery = `
+        SELECT t.* FROM (
+          SELECT code_id,
+                 file_name,
+                 uploaded_at,
+                 display_name,
+                 status,
+                 '${table}' as document_type,
+                 CASE 
+                   WHEN file_name LIKE 'http%' THEN file_name 
+                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                 END as file_url
+          FROM ${table}
+          WHERE code_id IN (?)
+          ORDER BY uploaded_at DESC
+        ) t
+        GROUP BY t.code_id
+      `;
+    
+      try {
+        const docs = await queryDatabase(documentsQuery, [codeIds]);
+        allDocuments = [...allDocuments, ...docs];
+      } catch (err) {
+        console.error(`Error fetching from ${table}:`, err);
+        // Continue with other tables even if one fails
+      }
+    }
+
+    const documentsByUser = {};
+    allDocuments.forEach(doc => {
+      if (!documentsByUser[doc.code_id]) {
+        documentsByUser[doc.code_id] = [];
+      }
+      documentsByUser[doc.code_id].push(doc);
+    });
+
+    const usersWithFamily = users.map(user => ({
+      ...user,
+      familyMembers: familyByUser[user.code_id] || [],
+      documents: documentsByUser[user.code_id] || []
+    }));
+
+    res.status(200).json(usersWithFamily);
+  } catch (err) {
+    console.error('Error fetching pending users:', err);
+    res.status(500).json({ error: 'Error fetching pending users' });
+  }
+});
+
+app.get('/pendingUsersAdmin', async (req, res) => {
+  try {
+    const users = await queryDatabase(`
+      SELECT u.id AS userId, u.email, u.name, u.status, u.code_id, u.approval,
+             s1.first_name, s1.middle_name, s1.last_name, s1.suffix, s1.age, s1.gender, 
+             s1.date_of_birth, s1.place_of_birth, s1.barangay, s1.education, 
+             s1.civil_status, s1.occupation, s1.religion, s1.company, 
+             s1.income, s1.employment_status, s1.contact_number, s1.email, 
+             s1.pantawid_beneficiary, s1.indigenous,
+             s3.classification,
+             s4.needs_problems,
+             s5.emergency_name, s5.emergency_relationship, 
+             s5.emergency_address, s5.emergency_contact
+      FROM users u
+      JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+      LEFT JOIN step3_classification s3 ON u.code_id = s3.code_id
+      LEFT JOIN step4_needs_problems s4 ON u.code_id = s4.code_id
+      LEFT JOIN step5_in_case_of_emergency s5 ON u.code_id = s5.code_id
+      WHERE u.status = 'Pending' AND (u.approval IS NULL OR u.approval != 'Approved')
     `);
 
     if (users.length === 0) {
@@ -1518,6 +1628,11 @@ app.post('/updateUserStatus', async (req, res) => {
         userResult[0].date_of_birth,
         userResult[0].password
       );
+
+      // If approval is provided in the request, update the approval column
+      if (req.body.approval) {
+        await queryDatabase('UPDATE users SET approval = ? WHERE code_id = ?', [req.body.approval, code_id]);
+      }
 
       await queryDatabase('COMMIT');
       
@@ -4273,6 +4388,438 @@ app.post('/api/updateUserInformation', async (req, res) => {
   }
 });
 
+// Add route for superadmin change password
+app.post('/api/superadmin/change-password', async (req, res) => {
+  let { superadminId, email, currentPassword, newPassword } = req.body;
+  console.log('Received superadmin change password request for superadminId:', superadminId, 'email:', email);
 
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Ensure superadminId is treated as a number if it's a numeric string
+  if (superadminId) {
+    superadminId = Number(superadminId) || superadminId;
+    console.log('Processed superadminId (after conversion):', superadminId, 'Type:', typeof superadminId);
+  }
+
+  try {
+    let superadminResults = [];
+    
+    // First try to find superadmin by ID
+    if (superadminId) {
+      console.log('Trying to find superadmin by ID:', superadminId);
+      const superadminByIdQuery = 'SELECT id, email, password FROM superadmin WHERE id = ?';
+      console.log('SQL Query (by ID):', superadminByIdQuery, 'Params:', [superadminId]);
+      
+      superadminResults = await queryDatabase(superadminByIdQuery, [superadminId]);
+      console.log('Query results by ID:', JSON.stringify(superadminResults, null, 2));
+    }
+    
+    // If not found by ID and email is provided, try to find by email
+    if ((!superadminResults || superadminResults.length === 0) && email) {
+      console.log('Superadmin not found by ID, trying email:', email);
+      const superadminByEmailQuery = 'SELECT id, email, password FROM superadmin WHERE email = ?';
+      console.log('SQL Query (by email):', superadminByEmailQuery, 'Params:', [email]);
+      
+      superadminResults = await queryDatabase(superadminByEmailQuery, [email]);
+      console.log('Query results by email:', JSON.stringify(superadminResults, null, 2));
+    }
+    
+    // Still not found
+    if (!superadminResults || superadminResults.length === 0) {
+      console.log('Superadmin not found with ID:', superadminId, 'or email:', email);
+      return res.status(404).json({ message: 'Superadmin not found' });
+    }
+
+    const superadmin = superadminResults[0];
+    console.log('Found superadmin:', JSON.stringify(superadmin, null, 2));
+    const storedPassword = superadmin.password;
+    console.log('Current password in DB:', storedPassword);
+    console.log('Provided current password:', currentPassword);
+
+    // Compare current password (simple string comparison)
+    if (storedPassword !== currentPassword) {
+      console.log('Password mismatch for superadmin:', superadmin.id);
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Prevent using the same password
+    if (currentPassword === newPassword) {
+      console.log('Superadmin attempted to reuse the same password:', superadmin.id);
+      return res.status(400).json({ message: 'New password must be different from your current password' });
+    }
+
+    // Set superadminId to the one we found in the database
+    superadminId = superadmin.id;
+
+    // Update the password
+    console.log('Updating password for superadmin:', superadminId);
+    const updateQuery = 'UPDATE superadmin SET password = ? WHERE id = ?';
+    console.log('Update SQL Query:', updateQuery, 'Params:', [newPassword, superadminId]);
+    
+    const updateResult = await queryDatabase(updateQuery, [newPassword, superadminId]);
+    
+    console.log('Password update result:', JSON.stringify(updateResult, null, 2));
+    
+    if (updateResult && updateResult.affectedRows > 0) {
+      console.log('Password successfully updated for superadmin:', superadminId);
+      return res.status(200).json({ message: 'Password updated successfully' });
+    } else {
+      console.log('No rows affected when updating password for superadmin:', superadminId);
+      return res.status(500).json({ message: 'Failed to update password' });
+    }
+  } catch (error) {
+    console.error('Error changing superadmin password:', error);
+    res.status(500).json({ message: 'Server error', details: error.message });
+  }
+});
+
+// Change password for admin
+app.post('/api/admins/change-password', async (req, res) => {
+  const { adminId, currentPassword, newPassword } = req.body;
+
+  if (!adminId || !currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  try {
+    // Get current password from admin table
+    const admins = await queryDatabase('SELECT password FROM admin WHERE id = ?', [adminId]);
+    if (!admins || admins.length === 0) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    const admin = admins[0];
+    if (admin.password !== currentPassword) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'New password must be different from your current password' });
+    }
+    // Update password
+    await queryDatabase('UPDATE admin SET password = ? WHERE id = ?', [newPassword, adminId]);
+    res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Error changing admin password:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.post('/updateUserStatusAdmin', async (req, res) => {
+  const { code_id, approval } = req.body;
+
+  if (!code_id || !approval) {
+    return res.status(400).json({ success: false, error: 'Missing code_id or approval value' });
+  }
+
+  try {
+    // Update approval
+    const result = await queryDatabase(
+      'UPDATE users SET approval = ? WHERE code_id = ?',
+      [approval, code_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'User/application not found' });
+    }
+
+    // Get user_id and barangay for notification (join step1_identifying_information)
+    const [userInfo] = await queryDatabase(
+      `SELECT u.id, s1.barangay
+       FROM users u
+       JOIN step1_identifying_information s1 ON u.code_id = s1.code_id
+       WHERE u.code_id = ?`,
+      [code_id]
+    );
+
+    if (userInfo) {
+      // Insert notification for superadmin
+      await queryDatabase(
+        'INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())',
+        [
+          userInfo.id,
+          'admin_approved',
+          `Admin from ${userInfo.barangay} approved an application.`
+        ]
+      );
+    }
+
+    res.json({ success: true, message: 'Approval updated and superadmin notified.' });
+  } catch (err) {
+    console.error('Error updating approval:', err);
+    res.status(500).json({ success: false, error: 'Database error' });
+  }
+});
+
+// In your server.js or routes file
+app.post('/newchildrequest', async (req, res) => {
+  const {
+    code_id,
+    first_name,
+    middle_name,
+    last_name,
+    suffix,
+    birthdate,
+    age,
+    educational_attainment
+  } = req.body;
+
+  if (!code_id || !first_name || !last_name || !birthdate || !educational_attainment) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
+
+  try {
+    // Look up user_id from code_id
+    const userResult = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found for this code_id.' });
+    }
+    const user_id = userResult[0].id;
+
+    // Get barangay from step1_identifying_information
+    const barangayResult = await queryDatabase('SELECT barangay FROM step1_identifying_information WHERE code_id = ?', [code_id]);
+    const barangay = barangayResult && barangayResult.length > 0 ? barangayResult[0].barangay : null;
+
+    const sql = `
+      INSERT INTO newchildrequest
+        (code_id, first_name, middle_name, last_name, suffix, birthdate, age, educational_attainment, barangay, status, requested_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())
+    `;
+    await queryDatabase(sql, [
+      code_id,
+      first_name,
+      middle_name,
+      last_name,
+      suffix,
+      birthdate,
+      age,
+      educational_attainment,
+      barangay
+    ]);
+
+    // Notify admin of the same barangay
+    if (barangay) {
+      // Insert notification for admin
+      const notifMessage = `A new child request has been submitted by a user in your barangay.`;
+      await queryDatabase(
+        'INSERT INTO adminnotifications (user_id, notif_type, message, barangay, is_read, created_at) VALUES (?, ?, ?, ?, 0, NOW())',
+        [user_id, 'new_child_request', notifMessage, barangay]
+      );
+    }
+
+    res.json({ success: true, message: 'Child request submitted.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.get('/newchildrequest', async (req, res) => {
+  try {
+    const rows = await queryDatabase('SELECT * FROM newchildrequest ORDER BY requested_at DESC');
+    res.json({ success: true, requests: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// POST approve/decline
+app.post('/newchildrequest/approve', async (req, res) => {
+  const { id } = req.body;
+  try {
+    // 1. Approve the child request
+    await queryDatabase('UPDATE newchildrequest SET status = ? WHERE id = ?', ['Approved', id]);
+
+    // 2. Get code_id and user_id from the child request
+    const [childRequest] = await queryDatabase('SELECT code_id FROM newchildrequest WHERE id = ?', [id]);
+    if (!childRequest) {
+      return res.status(404).json({ success: false, message: 'Child request not found.' });
+    }
+    const { code_id } = childRequest;
+    const [user] = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    const user_id = user.id;
+
+    // 3. Set user status to 'Pending Request'
+    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Pending Request', user_id]);
+
+    // 4. Send notification to the user (now using user_childrequest table)
+    const notifMessage = 'Your child request has been accepted by your barangay and is now waiting for approval from the MSWDO.';
+    await queryDatabase(
+      'INSERT INTO user_childrequest (user_id, message_accepted, is_read) VALUES (?, ?, 0)',
+      [user_id, notifMessage]
+    );
+
+    // 5. Notify superadmin
+    const [barangayRow] = await queryDatabase('SELECT barangay FROM newchildrequest WHERE id = ?', [id]);
+    const barangay = barangayRow ? barangayRow.barangay : 'Unknown';
+    const superadminNotif = `A child request has been approved from barangay ${barangay}.`;
+    await queryDatabase(
+      'INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())',
+      [user_id, 'child_request_approved', superadminNotif]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+app.post('/newchildrequest/decline', async (req, res) => {
+  const { id } = req.body;
+  try {
+    // Get code_id and user_id from the child request before deleting
+    const [childRequest] = await queryDatabase('SELECT code_id FROM newchildrequest WHERE id = ?', [id]);
+    if (childRequest) {
+      const { code_id } = childRequest;
+      const [user] = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+      if (user) {
+        const user_id = user.id;
+        const notifMessage = 'Sorry that your barangay admin has declined your request.';
+        await queryDatabase(
+          'INSERT INTO user_childrequest (user_id, message_accepted, is_read) VALUES (?, ?, 0)',
+          [user_id, notifMessage]
+        );
+      }
+    }
+    // Delete the request
+    await queryDatabase('DELETE FROM newchildrequest WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.get('/newchildrequest/by-code-id', async (req, res) => {
+  const { code_id } = req.query;
+  if (!code_id) {
+    return res.status(400).json({ success: false, message: 'Missing code_id parameter.' });
+  }
+  try {
+    const rows = await queryDatabase('SELECT * FROM newchildrequest WHERE code_id = ? ORDER BY requested_at DESC', [code_id]);
+    res.json({ success: true, requests: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.get('/newchildrequest/by-barangay', async (req, res) => {
+  const { barangay } = req.query;
+  if (!barangay) {
+    return res.status(400).json({ success: false, message: 'Missing barangay parameter.' });
+  }
+  try {
+    const rows = await queryDatabase('SELECT * FROM newchildrequest WHERE barangay = ? ORDER BY requested_at DESC', [barangay]);
+    res.json({ success: true, requests: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// Endpoint to get all child request notifications for a user
+app.get('/api/user-childrequest/:userId', async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'Missing userId parameter.' });
+  }
+  try {
+    const rows = await queryDatabase('SELECT * FROM user_childrequest WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// Mark all user_childrequest notifications as read for a user
+app.put('/api/user-childrequest/mark-all-as-read/:userId', async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'Missing userId parameter.' });
+  }
+  try {
+    await queryDatabase('UPDATE user_childrequest SET is_read = 1 WHERE user_id = ?', [userId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.get('/newchildrequest/all', async (req, res) => {
+  try {
+    const rows = await queryDatabase('SELECT * FROM newchildrequest ORDER BY requested_at DESC');
+    res.json({ success: true, requests: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.post('/newchildrequest/superadmin-approve', async (req, res) => {
+  const { id } = req.body;
+  try {
+    // 1. Get all child request data
+    const [childRequest] = await queryDatabase('SELECT * FROM newchildrequest WHERE id = ?', [id]);
+    if (!childRequest) {
+      return res.status(404).json({ success: false, message: 'Child request not found.' });
+    }
+    const { code_id, first_name, middle_name, last_name, suffix, age, educational_attainment, birthdate } = childRequest;
+    const [user] = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    const user_id = user.id;
+
+    // 2. Insert child into step2_family_occupation
+    const family_member_name = `${first_name} ${middle_name ? middle_name + ' ' : ''}${last_name}${suffix ? ' ' + suffix : ''}`.trim();
+    await queryDatabase(
+      'INSERT INTO step2_family_occupation (code_id, family_member_name, age, educational_attainment, birthdate) VALUES (?, ?, ?, ?, ?)',
+      [code_id, family_member_name, age, educational_attainment, birthdate]
+    );
+
+    // 3. Set user status to 'Verified'
+    await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user_id]);
+
+    // 4. Send notification to the user (now using user_childrequest table)
+    const notifMessage = 'Your child request has been approved by the MSWDO.';
+    await queryDatabase(
+      'INSERT INTO user_childrequest (user_id, message_accepted, is_read) VALUES (?, ?, 0)',
+      [user_id, notifMessage]
+    );
+
+    // 5. Delete the child request from the table
+    await queryDatabase('DELETE FROM newchildrequest WHERE id = ?', [id]);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.post('/newchildrequest/superadmin-decline', async (req, res) => {
+  const { id } = req.body;
+  try {
+    // Get code_id and user_id from the child request before deleting
+    const [childRequest] = await queryDatabase('SELECT code_id FROM newchildrequest WHERE id = ?', [id]);
+    if (childRequest) {
+      const { code_id } = childRequest;
+      const [user] = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+      if (user) {
+        const user_id = user.id;
+        // Set user status to 'Verified' even on decline
+        await queryDatabase('UPDATE users SET status = ? WHERE id = ?', ['Verified', user_id]);
+        const notifMessage = 'Sorry, your child request has been declined by the MSWDO.';
+        await queryDatabase(
+          'INSERT INTO user_childrequest (user_id, message_accepted, is_read) VALUES (?, ?, 0)',
+          [user_id, notifMessage]
+        );
+      }
+    }
+    // Delete the request from the table
+    await queryDatabase('DELETE FROM newchildrequest WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
 
 

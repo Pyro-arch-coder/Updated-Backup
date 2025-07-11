@@ -22,7 +22,8 @@ import {
   faEdit,
   faDownload,
   faStar,
-  faInfoCircle
+  faInfoCircle,
+  faPlus
 } from '@fortawesome/free-solid-svg-icons';
 import './Profile.css';
 import avatar from '../assets/avatar.jpg';
@@ -115,6 +116,17 @@ const Profile = () => {
   const [hasRated, setHasRated] = useState(false);
   const [childRequests, setChildRequests] = useState([]);
   const [loadingChildRequests, setLoadingChildRequests] = useState(false);
+  const [showAddChildModal, setShowAddChildModal] = useState(false);
+  const [newChild, setNewChild] = useState({
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    suffix: '',
+    birthdate: '',
+    age: '',
+    educational_attainment: ''
+  });
+  const [isSubmittingChild, setIsSubmittingChild] = useState(false);
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -628,7 +640,7 @@ const Profile = () => {
 
   // Rename and update the function to check for restricted access
   const hasRestrictedAccess = () => {
-    return user?.status === 'Pending Remarks' || user?.status === 'Terminated';
+    return user?.status === 'Pending Remarks' || user?.status === 'Terminated' || user?.status === 'Pending Request';
   };
 
   // Add function to check if all required documents are submitted and approved
@@ -1125,6 +1137,92 @@ const Profile = () => {
     </div>
   );
 
+  const handleAddChildClick = () => {
+    setNewChild({
+      first_name: '',
+      middle_name: '',
+      last_name: '',
+      suffix: '',
+      birthdate: '',
+      age: '',
+      educational_attainment: ''
+    });
+    setShowAddChildModal(true);
+  };
+
+  const handleAddChildChange = (field, value) => {
+    if (field === 'birthdate') {
+      setNewChild(prev => ({ ...prev, birthdate: value, age: calculateChildAge(value) }));
+    } else {
+      setNewChild(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const handleAddChildSave = async () => {
+    if (!newChild.first_name.trim() || !newChild.last_name.trim() || !newChild.birthdate || !newChild.educational_attainment) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    setIsSubmittingChild(true);
+    try {
+      const codeId = user?.code_id;
+      // Check for existing pending request
+      const checkRes = await axios.get(`${API_BASE_URL}/newchildrequest/by-code-id`, { params: { code_id: codeId } });
+      const hasPending = checkRes.data?.requests?.some(r => r.status === 'Pending');
+      if (hasPending) {
+        toast.error('You already have a pending child request. Please wait for it to be processed before submitting another.');
+        setIsSubmittingChild(false);
+        return;
+      }
+      const res = await axios.post(`${API_BASE_URL}/newchildrequest`, {
+        code_id: codeId,
+        first_name: newChild.first_name,
+        middle_name: newChild.middle_name,
+        last_name: newChild.last_name,
+        suffix: newChild.suffix,
+        birthdate: newChild.birthdate,
+        age: newChild.age,
+        educational_attainment: newChild.educational_attainment
+      });
+      if (res.data && res.data.success) {
+        toast.success('Child request submitted!');
+        setShowAddChildModal(false);
+      } else {
+        toast.error(res.data.message || 'Failed to submit request.');
+      }
+    } catch (err) {
+      toast.error('Server error. Please try again.');
+    } finally {
+      setIsSubmittingChild(false);
+    }
+  };
+
+  const handleAddChildCancel = () => {
+    setShowAddChildModal(false);
+  };
+
+  const educationalOptions = [
+    'Not Applicable',
+    'College Graduate',
+    'College Undergraduate',
+    'High School Graduate',
+    'High School Undergraduate',
+    'Elementary Graduate',
+    'Elementary Undergraduate',
+    'Kindergarten',
+    'Daycare'
+  ];
+  const suffixOptions = ['', 'Jr', 'II', 'III', 'IV', 'V'];
+
+  // Helper to get today's date in YYYY-MM-DD format
+  function getTodayDate() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   return (
     <div className="profile-container">
       <Toaster position="top-right" />
@@ -1170,7 +1268,7 @@ const Profile = () => {
                 <p className="user-email">{user?.email || 'Loading...'}</p>
                 <div className="profile-tags">
                   <span className={`tag ${user?.status?.toLowerCase()}-tag`}>
-                    {!['Pending Remarks', 'Terminated', 'Incomplete', 'Declined'].includes(user?.status) && (
+                    {!['Pending Remarks', 'Terminated', 'Incomplete', 'Declined', 'Pending Request'].includes(user?.status) && (
                       <FontAwesomeIcon icon={faCheckCircle} />
                     )}
                     {user?.status || 'Loading...'}
@@ -1222,12 +1320,18 @@ const Profile = () => {
             <div className="pending-remarks-content">
               <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" size="3x" />
               <h2>
-                {user?.status === 'Terminated' ? 'Account Terminated' : 'Account Under Investigation'}
+                {user?.status === 'Terminated'
+                  ? 'Account Terminated'
+                  : user?.status === 'Pending Request'
+                    ? 'Pending Request'
+                    : 'Account Under Investigation'}
               </h2>
               <p>
-                {user?.status === 'Terminated' 
+                {user?.status === 'Terminated'
                   ? 'Your account has been terminated. You no longer have access to solo parent services.'
-                  : 'Your account is currently under investigation. Please wait for further notice from the administrator.'}
+                  : user?.status === 'Pending Request'
+                    ? 'Your request to add a child is waiting for approval. Please wait for the MSWDO to review and approve your request. If you have any questions, please contact your barangay office.'
+                    : 'Your account is currently under investigation. Please wait for further notice from the administrator.'}
               </p>
               <p>If you have any questions, please contact your barangay office.</p>
             </div>
@@ -1299,7 +1403,7 @@ const Profile = () => {
             <>
               {!isRenewalStatus && user?.status !== 'Declined' && (
                 <div className="profile-tabsuser">
-                  {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && (
+                  {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && user?.status !== 'Pending Request' && (
                     <button 
                       className={`tab-buttonuser ${activeTab === 'personal' ? 'active' : ''}`}
                       onClick={() => setActiveTab('personal')}
@@ -1308,7 +1412,7 @@ const Profile = () => {
                       Personal Information
                     </button>
                   )}
-                  {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && (
+                  {user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && user?.status !== 'Pending Request' && (
                     <button 
                       className={`tab-buttonuser ${activeTab === 'documents' ? 'active' : ''}`}
                       onClick={() => setActiveTab('documents')}
@@ -1445,7 +1549,7 @@ const Profile = () => {
                   </div>
                 ) : (
                   <>
-                    {activeTab === 'personal' && user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && user?.status !== 'Declined' && (
+                    {activeTab === 'personal' && user?.status !== 'Terminated' && user?.status !== 'Pending Remarks' && user?.status !== 'Declined' && user?.status !== 'Pending Request' && (
                       <>
                         <div className="details-section">
                           <div className="section-header">
@@ -1494,9 +1598,13 @@ const Profile = () => {
                         </div>
 
                         <div className="children-section">
-                          <div className="section-header">
+                          <div className="section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <h2>Children</h2>
-                            
+                            {user && !['Terminated', 'Pending Remarks', 'Declined', 'Renewal', 'Pending Request'].includes(user.status) && (
+                              <button className="add-child-btn" onClick={handleAddChildClick} style={{ background: '#16C47F', color: 'white', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                                <FontAwesomeIcon icon={faPlus} /> Add New Child
+                              </button>
+                            )}
                           </div>
                           
                           {/* Existing Children */}
@@ -1523,9 +1631,6 @@ const Profile = () => {
                               </div>
                             ) : null}
                           </div>
-
-                          
-                          
                         </div>
                       </>
                     )}
@@ -1747,7 +1852,7 @@ const Profile = () => {
                 )}
 
                 {/* Add Events Section */}
-                {user?.status !== 'Declined' && user?.status !== 'Pending Remarks' && user?.status !== 'Terminated' && user?.status !== 'Renewal' && (
+                {user?.status !== 'Declined' && user?.status !== 'Pending Remarks' && user?.status !== 'Terminated' && user?.status !== 'Renewal' && user?.status !== 'Pending Request' && (
                   <div className="user-profile-announcements">
                     <div className="profile-announcements-header">
                       <h2>Events</h2>
@@ -1825,6 +1930,55 @@ const Profile = () => {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAddChildModal && (
+        <div className="modal-overlay" style={{zIndex: 3000}}>
+          <div className="modal-content" style={{maxWidth: 400, borderRadius: 16, boxShadow: '0 8px 32px rgba(44,109,46,0.18)', padding: 0, overflow: 'hidden'}}>
+            <div className="modal-header" style={{background: '#e8f5e9', padding: '1.5rem 2rem', borderBottom: '1px solid #f0f0f0'}}>
+              <h2 style={{margin: 0, fontWeight: 700, color: '#2E7D32', fontSize: '1.5rem'}}>Add New Child</h2>
+              <button className="close-btn-attendace" onClick={handleAddChildCancel} style={{fontSize: 22, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer'}} disabled={isSubmittingChild}>&times;</button>
+            </div>
+            <div className="modal-body" style={{padding: '2rem'}}>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>First Name *</label>
+                <input type="text" value={newChild.first_name} onChange={e => handleAddChildChange('first_name', e.target.value)} style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4}} maxLength={20} />
+              </div>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>Middle Name</label>
+                <input type="text" value={newChild.middle_name} onChange={e => handleAddChildChange('middle_name', e.target.value)} style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4}} maxLength={20} />
+              </div>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>Last Name *</label>
+                <input type="text" value={newChild.last_name} onChange={e => handleAddChildChange('last_name', e.target.value)} style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4}} maxLength={20} />
+              </div>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>Suffix</label>
+                <select value={newChild.suffix} onChange={e => handleAddChildChange('suffix', e.target.value)} style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4}}>
+                  {suffixOptions.map((s, i) => <option key={i} value={s}>{s ? s : 'No Suffix'}</option>)}
+                </select>
+              </div>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>Birthdate *</label>
+                <input type="date" value={newChild.birthdate} onChange={e => handleAddChildChange('birthdate', e.target.value)} style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4}} max={getTodayDate()} />
+              </div>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>Age</label>
+                <input type="text" value={newChild.birthdate ? calculateChildAge(newChild.birthdate) : ''} disabled style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4, background: '#f5f5f5'}} />
+              </div>
+              <div style={{marginBottom: 18}}>
+                <label style={{fontWeight: 600, color: '#2E7D32'}}>Educational Attainment *</label>
+                <select value={newChild.educational_attainment} onChange={e => handleAddChildChange('educational_attainment', e.target.value)} style={{width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc', marginTop: 4}}>
+                  <option value="" disabled>Select Educational Attainment</option>
+                  {educationalOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer" style={{display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '1rem 2rem', borderTop: '1px solid #f0f0f0'}}>
+              <button onClick={handleAddChildCancel} style={{background: '#bdbdbd', color: 'white', border: 'none', borderRadius: 6, padding: '8px 20px', fontWeight: 600, fontSize: 15, cursor: 'pointer'}} disabled={isSubmittingChild}>Cancel</button>
+              <button onClick={handleAddChildSave} style={{background: '#16C47F', color: 'white', border: 'none', borderRadius: 6, padding: '8px 20px', fontWeight: 600, fontSize: 15, cursor: isSubmittingChild ? 'not-allowed' : 'pointer'}} disabled={isSubmittingChild}>{isSubmittingChild ? 'Requesting...' : 'Request'}</button>
             </div>
           </div>
         </div>

@@ -53,53 +53,12 @@ const SDashboard = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Add date validation function
-  const validateDates = (start, end) => {
-    // Clear previous error
-    setDateError("");
-
-    // Get current year
-    const currentYear = new Date().getFullYear();
-
-    if (start && end) {
-      const startDate = new Date(start);
-      const endDate = new Date(end);
-      
-      // Check if either date's year is in the future
-      if (startDate.getFullYear() > currentYear || endDate.getFullYear() > currentYear) {
-        setDateError("Cannot select future years");
-        return false;
-      }
-
-      // Check if end date is before start date
-      if (endDate < startDate) {
-        setDateError("End date cannot be earlier than start date");
-        return false;
-      }
-    }
-    return true;
-  };
-
-  // Update the date change handlers
-  const handleStartDateChange = (e) => {
-    const newStartDate = e.target.value;
-    if (validateDates(newStartDate, endDate)) {
-      setStartDate(newStartDate);
-    }
-  };
-
-  const handleEndDateChange = (e) => {
-    const newEndDate = e.target.value;
-    if (validateDates(startDate, newEndDate)) {
-      setEndDate(newEndDate);
-    }
-  };
-
-  // Function to get max date allowed (last day of current year)
-  const getMaxDateForInput = () => {
-    const currentYear = new Date().getFullYear();
-    return `${currentYear}-12-31`;
-  };
+  const [reportCount, setReportCount] = useState(() => {
+    const count = parseInt(localStorage.getItem('superadmin_report_count') || '0', 10);
+    return isNaN(count) ? 0 : count;
+  });
+  const [reportLimitMessage, setReportLimitMessage] = useState('');
+  const [exportFilter, setExportFilter] = useState('all');
 
   const barangays = [
     "All",
@@ -1033,6 +992,11 @@ const SDashboard = () => {
   
   // Update generateExcelReport to include beneficiary data
   const generateExcelReport = async () => {
+    if (reportCount >= 5) {
+      setReportLimitMessage('You have reached the maximum of 5 report generations.');
+      return;
+    }
+
     if (!startDate || !endDate) {
       setDateError('Please select both start and end dates for the report');
       return;
@@ -1429,6 +1393,11 @@ const SDashboard = () => {
       setSuccessMessage('Generated Success');
       setShowSuccessModal(true);
       setTimeout(() => setShowSuccessModal(false), 2000);
+      // Increment report count
+      const newCount = reportCount + 1;
+      setReportCount(newCount);
+      localStorage.setItem('superadmin_report_count', newCount);
+      setReportLimitMessage('');
 
     } catch (error) {
       console.error('Error generating report:', error);
@@ -1458,6 +1427,297 @@ const SDashboard = () => {
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const count = parseInt(localStorage.getItem('superadmin_report_count') || '0', 10);
+    setReportCount(isNaN(count) ? 0 : count);
+  }, []);
+
+  const handleExport = async () => {
+    // Date validation for all exports
+    if (!startDate || !endDate) {
+      setDateError('Please select both start and end dates for the report');
+      return;
+    }
+    if (!validateDates(startDate, endDate)) {
+      return;
+    }
+    if (exportFilter === 'all') {
+      await generateExcelReport();
+      return;
+    }
+    // Prepare data for each filter with same formatting as 'All'
+    let wb = XLSX.utils.book_new();
+    let ws, fileName = '';
+    // Helper functions for styling (copied from generateExcelReport)
+    const createMainReportTitles = () => [
+      { A: 'SANTA MARIA MUNICIPALITY' },
+      { A: 'Municipal Social Welfare and Development Office (MSWDO)' },
+      { A: 'SOLO PARENT ANALYTICS REPORT' }
+    ];
+    const createSheetHeaderDetails = (title, subtitle = '') => [
+      { A: `Report Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}` },
+      { A: `Barangay: ${selectedBrgy}` },
+      { A: `Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}` },
+      { A: '' },
+      { A: title },
+      { A: subtitle }
+    ];
+    const addReportHeaderStyling = (ws) => {
+      ws['!cols'] = [
+        { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+        { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }
+      ];
+      ws['!merges'] = ws['!merges'] || [];
+      ws['!merges'].push(
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } }
+      );
+      for (let i = 0; i < 3; i++) {
+        const cellRef = `A${i + 1}`;
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { bold: true, sz: (i === 2) ? 20 : 14, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "16C47F" } },
+            alignment: { horizontal: "center", vertical: "center" }
+          };
+        }
+      }
+      for (let i = 4; i < 10; i++) {
+        ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 7 } });
+        const cellRef = `A${i + 1}`;
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { bold: (i === 8 || i === 9), sz: (i === 8 || i === 9) ? 16 : 12, color: { rgb: "000000" } },
+            fill: { fgColor: { rgb: "F0F0F0" } },
+            alignment: { horizontal: "center", vertical: "center" }
+          };
+        }
+      }
+    };
+    const addDataTableHeaderStyling = (ws, headerRowIndex, numColumns) => {
+      for (let c = 0; c < numColumns; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex - 1, c: c });
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { bold: true, sz: 12, color: { rgb: "000000" } },
+            fill: { fgColor: { rgb: "D9EAD3" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+              top: { style: "thin", color: { rgb: "000000" } },
+              bottom: { style: "thin", color: { rgb: "000000" } },
+              left: { style: "thin", color: { rgb: "000000" } },
+              right: { style: "thin", color: { rgb: "000000" } }
+            }
+          };
+        }
+      }
+    };
+    const addAlternatingRowColors = (ws, startRowIndex, endRowIndex, numColumns) => {
+      const color1 = "FFFFFF";
+      const color2 = "F2F2F2";
+      for (let r = startRowIndex - 1; r < endRowIndex; r++) {
+        const rowColor = (r % 2 === 0) ? color1 : color2;
+        for (let c = 0; c < numColumns; c++) {
+          const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
+          if (ws[cellRef]) {
+            ws[cellRef].s = ws[cellRef].s || {};
+            ws[cellRef].s.fill = { fgColor: { rgb: rowColor } };
+          } else {
+            ws[cellRef] = { s: { fill: { fgColor: { rgb: rowColor } } } };
+          }
+        }
+      }
+    };
+    if (exportFilter === 'monthlyPopulation') {
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('MONTHLY POPULATION ANALYSIS', 'Population Trends by Month'),
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'MONTH', B: 'POPULATION COUNT', C: 'CUMULATIVE TOTAL', D: 'MONTHLY GROWTH %' },
+        ...monthNames.map((month, index) => {
+          const cumulative = monthlyPopulation.datasets[0].data.slice(0, index + 1).reduce((sum, count) => sum + count, 0);
+          const growth = index > 0 ? ((monthlyPopulation.datasets[0].data[index] - monthlyPopulation.datasets[0].data[index - 1]) / (monthlyPopulation.datasets[0].data[index - 1] || 1) * 100).toFixed(1) : '0.0';
+          return {
+            A: month,
+            B: monthlyPopulation.datasets[0].data[index],
+            C: cumulative,
+            D: `${growth}%`
+          };
+        }),
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'TOTAL', B: monthlyPopulation.datasets[0].data.reduce((sum, count) => sum + count, 0), C: '', D: '' }
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 4);
+      addAlternatingRowColors(ws, 13, 13 + monthNames.length - 1, 4);
+      XLSX.utils.book_append_sheet(wb, ws, "Monthly Population");
+      fileName = `MSWDO_Monthly_Population_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`;
+    } else if (exportFilter === 'applicationStatus') {
+      const totalApplications = (applicationStatusData.accepted || 0) + (applicationStatusData.pending || 0) + (applicationStatusData.declined || 0);
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('APPLICATION STATUS ANALYSIS', 'Comprehensive Application Processing Overview'),
+        { A: '', B: '', C: '', D: '', E: '' },
+        { A: 'STATUS', B: 'COUNT', C: 'PERCENTAGE', D: 'PROCESSING TIME', E: 'NOTES' },
+        { A: 'Accepted', B: applicationStatusData.accepted || 0, C: `${((applicationStatusData.accepted || 0) / totalApplications * 100).toFixed(1)}%`, D: '15-30 days', E: 'Successfully processed applications' },
+        { A: 'Pending', B: applicationStatusData.pending || 0, C: `${((applicationStatusData.pending || 0) / totalApplications * 100).toFixed(1)}%`, D: 'Under review', E: 'Applications awaiting review or additional documents' },
+        { A: 'Declined', B: applicationStatusData.declined || 0, C: `${((applicationStatusData.declined || 0) / totalApplications * 100).toFixed(1)}%`, D: 'N/A', E: 'Applications that did not meet requirements' },
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'TOTAL APPLICATIONS', B: totalApplications, C: '100%', D: '', E: '' },
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'PERFORMANCE METRICS:', B: '', C: '', D: '', E: '' },
+        { A: '• Acceptance Rate', B: `${((applicationStatusData.accepted || 0) / totalApplications * 100).toFixed(1)}%`, C: '', D: '', E: 'Percentage of successful applications' },
+        { A: '• Processing Efficiency', B: `${((applicationStatusData.accepted || 0) / ((applicationStatusData.accepted || 0) + (applicationStatusData.pending || 0)) * 100).toFixed(1)}%`, C: '', D: '', E: 'Efficiency of application processing' }
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 5);
+      addAlternatingRowColors(ws, 13, 15, 5);
+      XLSX.utils.book_append_sheet(wb, ws, "Application Status");
+      fileName = `MSWDO_Application_Status_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`;
+    } else if (exportFilter === 'beneficiaryStatus') {
+      const total = beneficiariesData.beneficiaries + beneficiariesData.nonBeneficiaries;
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('BENEFICIARIES ANALYSIS', 'Detailed Breakdown of Beneficiary Status'),
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'CATEGORY', B: 'COUNT', C: 'PERCENTAGE', D: 'DESCRIPTION' },
+        { A: 'Beneficiaries', B: beneficiariesData.beneficiaries, C: `${(beneficiariesData.beneficiaries / total * 100).toFixed(1)}%`, D: 'Solo parents currently receiving government benefits' },
+        { A: 'Non-Beneficiaries', B: beneficiariesData.nonBeneficiaries, C: `${(beneficiariesData.nonBeneficiaries / total * 100).toFixed(1)}%`, D: 'Solo parents not receiving benefits' },
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'TOTAL', B: total, C: '100%', D: 'Total registered solo parents' },
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'ANALYSIS NOTES:', B: '', C: '', D: '' },
+        { A: '• Beneficiary Rate', B: `${(beneficiariesData.beneficiaries / total * 100).toFixed(1)}%`, C: '', D: 'Percentage of solo parents receiving benefits' },
+        { A: '• Coverage Gap', B: `${(beneficiariesData.nonBeneficiaries / total * 100).toFixed(1)}%`, C: '', D: 'Percentage not yet receiving benefits' }
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 4);
+      addAlternatingRowColors(ws, 13, 14, 4);
+      XLSX.utils.book_append_sheet(wb, ws, "Beneficiaries Analysis");
+      fileName = `MSWDO_Beneficiary_Status_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`;
+    } else if (exportFilter === 'childrenAge') {
+      const total = Object.values(childrenAgeData.ageGroups).reduce((sum, count) => sum + count, 0);
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('CHILDREN AGE DISTRIBUTION', 'Distribution of Children by Age Group'),
+        { A: '', B: '', C: '', D: '' },
+        { A: 'Age Group', B: 'Count', C: 'Percentage', D: 'Description' },
+        { A: '0-5 years', B: childrenAgeData.ageGroups['0-5'], C: `${(childrenAgeData.ageGroups['0-5'] / total * 100).toFixed(1)}%`, D: 'Preschool age children' },
+        { A: '6-12 years', B: childrenAgeData.ageGroups['6-12'], C: `${(childrenAgeData.ageGroups['6-12'] / total * 100).toFixed(1)}%`, D: 'Elementary school age children' },
+        { A: '13-17 years', B: childrenAgeData.ageGroups['13-17'], C: `${(childrenAgeData.ageGroups['13-17'] / total * 100).toFixed(1)}%`, D: 'High school age children' },
+        { A: '18-21 years', B: childrenAgeData.ageGroups['18-21'], C: `${(childrenAgeData.ageGroups['18-21'] / total * 100).toFixed(1)}%`, D: 'Young adult children' },
+        { A: '22+ years', B: childrenAgeData.ageGroups['22+'], C: `${(childrenAgeData.ageGroups['22+'] / total * 100).toFixed(1)}%`, D: 'Adult children' }
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 4);
+      addAlternatingRowColors(ws, 13, 17, 4);
+      XLSX.utils.book_append_sheet(wb, ws, "Children Age Distribution");
+      fileName = `MSWDO_Children_Age_Distribution_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`;
+    } else if (exportFilter === 'childrenCount') {
+      const total = childrenCountData.childrenCountDistribution.reduce((sum, item) => sum + item.frequency, 0);
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('NUMBER OF CHILDREN', 'Distribution of Number of Children per Solo Parent'),
+        { A: '', B: '', C: '', D: '' },
+        { A: 'Children Count', B: 'Frequency', C: 'Percentage', D: 'Description' },
+        ...childrenCountData.childrenCountDistribution.map(item => ({
+          A: item.count,
+          B: item.frequency,
+          C: total ? `${(item.frequency / total * 100).toFixed(1)}%` : '0%',
+          D: `Solo parents with ${item.count} children`
+        }))
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 4);
+      addAlternatingRowColors(ws, 13, 13 + childrenCountData.childrenCountDistribution.length - 1, 4);
+      XLSX.utils.book_append_sheet(wb, ws, "Number of Children");
+      fileName = `MSWDO_Number_of_Children_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`;
+    } else if (exportFilter === 'ageOfSoloParents') {
+      const total = ageData.ageDistribution.reduce((sum, item) => sum + item.count, 0);
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('AGE OF SOLO PARENTS', 'Distribution of Solo Parents by Age'),
+        { A: '', B: '', C: '', D: '' },
+        { A: 'Age', B: 'Count', C: 'Percentage', D: 'Description' },
+        ...ageData.ageDistribution.map(item => ({
+          A: item.age,
+          B: item.count,
+          C: total ? `${(item.count / total * 100).toFixed(1)}%` : '0%',
+          D: `${item.age} years old`
+        }))
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 4);
+      addAlternatingRowColors(ws, 13, 13 + ageData.ageDistribution.length - 1, 4);
+      XLSX.utils.book_append_sheet(wb, ws, "Age of Solo Parents");
+      fileName = `MSWDO_Age_of_Solo_Parents_Report_${selectedBrgy}_${startDate}_to_${endDate}.xlsx`;
+    }
+    XLSX.writeFile(wb, fileName);
+    setSuccessMessage('Generated Success');
+    setShowSuccessModal(true);
+    setTimeout(() => setShowSuccessModal(false), 2000);
+  };
+
+  // Add date validation function
+  const validateDates = (start, end) => {
+    // Clear previous error
+    setDateError("");
+
+    // Get current year
+    const currentYear = new Date().getFullYear();
+
+    if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      // Check if either date's year is in the future
+      if (startDate.getFullYear() > currentYear || endDate.getFullYear() > currentYear) {
+        setDateError("Cannot select future years");
+        return false;
+      }
+      // Check if end date is before start date
+      if (endDate < startDate) {
+        setDateError("End date cannot be earlier than start date");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Update the date change handlers
+  const handleStartDateChange = (e) => {
+    const newStartDate = e.target.value;
+    if (validateDates(newStartDate, endDate)) {
+      setStartDate(newStartDate);
+    }
+  };
+
+  const handleEndDateChange = (e) => {
+    const newEndDate = e.target.value;
+    if (validateDates(startDate, newEndDate)) {
+      setEndDate(newEndDate);
+    }
+  };
+
+  // Function to get max date allowed (last day of current year)
+  const getMaxDateForInput = () => {
+    const currentYear = new Date().getFullYear();
+    return `${currentYear}-12-31`;
+  };
 
   return (
     <Box sx={{ p: { xs: 0.5, sm: 3 } }}>
@@ -1536,15 +1796,35 @@ const SDashboard = () => {
                 inputProps={{ max: getMaxDateForInput() }}
                 sx={{ minWidth: 150 }}
               />
+              <FormControl sx={{ minWidth: 180 }} size="small">
+                <InputLabel id="export-filter-label">Export</InputLabel>
+                <Select
+                  labelId="export-filter-label"
+                  id="export-filter"
+                  value={exportFilter}
+                  label="Export"
+                  onChange={e => setExportFilter(e.target.value)}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="monthlyPopulation">Monthly Population</MenuItem>
+                  <MenuItem value="applicationStatus">Application Status</MenuItem>
+                  <MenuItem value="beneficiaryStatus">Beneficiary Status</MenuItem>
+                  <MenuItem value="childrenAge">Children Age Distribution</MenuItem>
+                  <MenuItem value="childrenCount">Number of Children</MenuItem>
+                  <MenuItem value="ageOfSoloParents">Age of Solo Parents</MenuItem>
+                </Select>
+              </FormControl>
               <Button
                 variant="contained"
                 color="success"
                 startIcon={<i className="fas fa-file-excel"></i>}
-                onClick={generateExcelReport}
+                onClick={handleExport}
                 sx={{ height: 40, minWidth: 160, fontWeight: 'bold', fontSize: 16 }}
+                disabled={reportCount >= 5}
               >
                 Export Report
               </Button>
+              {reportLimitMessage && <Alert severity="warning">{reportLimitMessage}</Alert>}
             </Box>
             {dateError && <Alert severity="error">{dateError}</Alert>}
           </Box>

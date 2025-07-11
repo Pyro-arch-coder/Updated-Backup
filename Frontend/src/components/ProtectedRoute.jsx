@@ -18,6 +18,9 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     localStorage.removeItem("UserId");
     localStorage.removeItem("id");
     localStorage.removeItem("barangay");
+    localStorage.removeItem("superadminId");
+    localStorage.removeItem("superadminEmail");
+    localStorage.removeItem("superadminToken");
     sessionStorage.clear();
     return <Navigate to="/login" />;
   }

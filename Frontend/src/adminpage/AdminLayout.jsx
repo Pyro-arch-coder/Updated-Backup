@@ -33,6 +33,12 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LockIcon from '@mui/icons-material/Lock';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import Alert from '@mui/material/Alert';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 
 // Define API base URL from environment variables with fallback
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -103,9 +109,19 @@ const navigationItems = [
     icon: <DashboardIcon />
   },
   {
+    title: 'Applications',
+    path: '/adminpage/adminapplications',
+    icon: <AssignmentIcon />
+  },
+  {
     title: 'Solo Parent Management',
     path: '/adminpage/soloparents',
     icon: <ShoppingCartIcon />
+  },
+  {
+    title: 'New Child Requests',
+    path: '/adminpage/newchildrequests',
+    icon: <AssignmentIcon />
   }
 ];
 
@@ -119,6 +135,17 @@ export default function Layout({ children }) {
   const [showNotifModal, setShowNotifModal] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState(null);
   const openMenu = Boolean(anchorEl);
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [passwordError, setPasswordError] = React.useState('');
+  const [passwordSuccess, setPasswordSuccess] = React.useState('');
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false);
 
   // Fetch notifications for the logged-in admin's barangay
   const fetchNotifications = async () => {
@@ -180,6 +207,19 @@ export default function Layout({ children }) {
     }
   };
 
+  // Handle notification click: mark as read, navigate, and close modal
+  const handleNotifClick = notif => {
+    markAsRead(notif.id);
+    if (notif.notif_type === 'new_solo_parent') {
+      navigate('/adminpage/soloparents');
+    } else if (notif.notif_type === 'new_app') {
+      navigate('/adminpage/adminapplications');
+    } else if (notif.notif_type === 'new_child_request') {
+      navigate('/adminpage/newchildrequests');
+    }
+    setShowNotifModal(false);
+  };
+
   // Clear all notifications
   const clearAllNotifications = async () => {
     const barangay = localStorage.getItem('barangay');
@@ -223,24 +263,89 @@ export default function Layout({ children }) {
   };
 
   const handleChangePassword = () => {
-    // Add change password logic here
+    setShowChangePasswordModal(true);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordSuccess('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     handleMenuClose();
-    // Navigate to change password page or open modal
+  };
+
+  const submitChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 10 || newPassword.length > 15) {
+      setPasswordError('Password must be between 10 and 15 characters long');
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError('New password must be different from your current password');
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+      const adminId = localStorage.getItem('id');
+      if (!adminId) {
+        setPasswordError('Admin not authenticated');
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/admins/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminId,
+          currentPassword,
+          newPassword
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setPasswordSuccess('Password changed successfully');
+        setTimeout(() => {
+          setShowChangePasswordModal(false);
+        }, 2000);
+      } else {
+        setPasswordError(data.message || 'Failed to change password');
+      }
+    } catch (error) {
+      setPasswordError('An error occurred. Please try again. ' + (error.message || ''));
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("id");
-    localStorage.removeItem("barangay");
-    navigate("/", { replace: true });
-    setTimeout(() => {
-      window.history.pushState(null, "", window.location.href);
-      window.onpopstate = () => {
-        window.history.pushState(null, "", window.location.href);
-      };
-    }, 0);
-    window.location.reload();
-    handleMenuClose();
+    // Remove all user/admin/superadmin tokens, IDs, emails, and cached data
+    const keysToRemove = [
+      'superadminToken', 'superadminId', 'superadminEmail',
+      'userToken', 'UserId', 'UserEmail', 'UserName', 'UserRole', 'token',
+      'id', 'barangay', 'loggedInUser',
+    ];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    // Remove any cached profile pictures or app-specific data
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('profilePic_') || key.startsWith('cache_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    sessionStorage.clear();
+    // Redirect to main page
+    window.location.href = '/mainpage';
   };
 
   React.useEffect(() => {
@@ -342,7 +447,7 @@ export default function Layout({ children }) {
                 </ListItemIcon>
                 <ListItemText>Change Password</ListItemText>
               </MenuItem>
-              <MenuItem onClick={handleLogout}>
+              <MenuItem onClick={() => setShowLogoutModal(true)}>
                 <ListItemIcon>
                   <LogoutIcon fontSize="small" />
                 </ListItemIcon>
@@ -510,7 +615,7 @@ export default function Layout({ children }) {
               {notifications.map((notification) => (
                 <ListItemButton
                   key={notification.id}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => handleNotifClick(notification)}
                   sx={{
                     borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
                     backgroundColor: notification.is_read ? 'transparent' : 'rgba(22, 196, 127, 0.05)',
@@ -582,6 +687,96 @@ export default function Layout({ children }) {
             Close
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Logout Confirmation Modal */}
+      <Dialog open={showLogoutModal} onClose={() => setShowLogoutModal(false)}>
+        <DialogTitle>Confirm Logout</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to log out?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowLogoutModal(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleLogout} color="error" variant="contained">
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Change Password Modal */}
+      <Dialog open={showChangePasswordModal} onClose={() => setShowChangePasswordModal(false)}>
+        <DialogTitle>Change Password</DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {passwordSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>{passwordSuccess}</Alert>
+          )}
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>{passwordError}</Alert>
+          )}
+          <form onSubmit={submitChangePassword}>
+            <TextField
+              label="Current Password"
+              type={showCurrentPassword ? "text" : "password"}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowCurrentPassword(!showCurrentPassword)} edge="end">
+                      {showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="New Password"
+              type={showNewPassword ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              helperText="Password must be between 10-15 characters"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowNewPassword(!showNewPassword)} edge="end">
+                      {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Confirm New Password"
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                      {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
+              <Button onClick={() => setShowChangePasswordModal(false)} variant="outlined" sx={{ borderRadius: 2, px: 3, textTransform: 'none', borderColor: '#16C47F', color: '#16C47F', '&:hover': { borderColor: '#16C47F', backgroundColor: 'rgba(22, 196, 127, 0.1)' } }}>Cancel</Button>
+              <Button type="submit" disabled={isChangingPassword} sx={{ borderRadius: 2, px: 3, textTransform: 'none', backgroundColor: '#16C47F', color: 'white', '&:hover': { backgroundColor: '#14a06b' }, '&:disabled': { backgroundColor: '#ccc' } }}>{isChangingPassword ? 'Changing Password...' : 'Change Password'}</Button>
+            </Box>
+          </form>
+        </DialogContent>
       </Dialog>
     </Box>
   );

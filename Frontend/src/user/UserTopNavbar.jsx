@@ -152,6 +152,26 @@ const UserTopNavbar = ({ onNavigate }) => {
         const notificationsResponse = await fetch(`${API_BASE_URL}/notifications/${userId}`);
         const notificationsData = await notificationsResponse.json();
 
+        // Fetch child request notifications from user_childrequest
+        let childRequestNotifications = [];
+        try {
+          const childReqRes = await fetch(`${API_BASE_URL}/api/user-childrequest/${userId}`);
+          if (childReqRes.ok) {
+            const childReqData = await childReqRes.json();
+            if (Array.isArray(childReqData)) {
+              childRequestNotifications = childReqData.map(notif => ({
+                id: `childrequest_${notif.id}`,
+                type: 'childrequest',
+                message: notif.message_accepted,
+                created_at: notif.created_at,
+                read: notif.is_read === 1
+              }));
+            }
+          }
+        } catch (err) {
+          childRequestNotifications = [];
+        }
+
         // Fetch events
         // Inside the fetchNotifications function, modify the events filtering
         const eventsResponse = await fetch(`${API_BASE_URL}/api/events?userId=${userId}`);
@@ -231,12 +251,13 @@ const UserTopNavbar = ({ onNavigate }) => {
           forumNotifications = [];
         }
 
-        // Combine all notifications (add forumNotifications to existing array)
+        // Combine all notifications (add childRequestNotifications)
         const allNotifications = [
           ...notificationsData,
+          ...childRequestNotifications,
           ...eventNotifications,
           ...followupNotifications,
-          ...forumNotifications  // Add this line
+          ...forumNotifications
         ];
 
         // Sort by creation date (newest first)
@@ -347,6 +368,12 @@ const UserTopNavbar = ({ onNavigate }) => {
 
       // Mark all follow-up notifications as read
       await fetch(`${API_BASE_URL}/followup-notifications/mark-all-as-read/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      // Mark all child request notifications as read
+      await fetch(`${API_BASE_URL}/api/user-childrequest/mark-all-as-read/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
       });

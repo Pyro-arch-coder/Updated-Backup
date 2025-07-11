@@ -667,17 +667,17 @@ router.post('/submitAllSteps', async (req, res) => {
           });
         });
 
-        // Add notification for new application
+        // Add notification for new application (admin notification)
         try {
           await new Promise((resolve, reject) => {
             connection.query(
-              `INSERT INTO superadminnotifications (user_id, notif_type, message, is_read, created_at) VALUES (?, ?, ?, 0, NOW())`,
-              [newUserResult.insertId, 'new_app', 'New application was created'],
+              `INSERT INTO adminnotifications (user_id, notif_type, message, barangay, is_read, created_at) VALUES (?, ?, ?, ?, 0, NOW())`,
+              [newUserResult.insertId, 'new_app', 'New application was created', step1.barangay],
               (err, result) => { if (err) reject(err); else resolve(result); }
             );
           });
         } catch (notifError) { 
-          console.error('Error inserting superadmin notification:', notifError); 
+          console.error('Error inserting admin notification:', notifError); 
         }
 
         console.log(`[${timestamp}] User account created with password set to birthdate and faceRecognitionPhoto`);

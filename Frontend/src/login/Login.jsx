@@ -101,6 +101,12 @@ const Login = () => {
           safeSetItem("barangay", user.barangay);
         }
 
+        // Store superadmin ID and email if the user is a superadmin
+        if (user.role === "superadmin") {
+          safeSetItem("superadminId", user.id);
+          safeSetItem("superadminEmail", user.email);
+        }
+
         // Save credentials if rememberMe is checked
         if (rememberMe) {
           safeSetItem('savedCredentials', JSON.stringify(formData));
