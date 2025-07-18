@@ -37,12 +37,14 @@ const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
 const faceAuthRouter = require('./routes/faceAuth');
 const forumRouter = require('./routes/forumRoutes');
+const idCardRouter = require('./routes/idCard');
 
 // Use routes
 app.use('/api/documents', documentsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/forum', forumRouter);
 app.use('/api/events', require('./routes/events'));  // Use the events router
+app.use('/api/idcard', idCardRouter);  // Use the idCard router
 
 // NOTIFICATIONS ENDPOINTS for SuperAdminSideBar.jsx
 // GET all notifications for superadmin
@@ -1473,13 +1475,20 @@ app.post('/getUserDetails', async (req, res) => {
            WHERE code_id = ?`, 
           [user.code_id]
         );
+        
+        // Get ID card images from user_id_cards table
+        const idCardResults = await queryDatabase(
+          `SELECT front_url, back_url FROM user_id_cards WHERE user_id = ? AND code_id = ?`,
+          [userId, user.code_id]
+        );
 
         return res.status(200).json({ 
           ...user,
           classification: classificationResult.length > 0 ? classificationResult[0].classification : null,
           validUntil: validDateResult.length > 0 ? validDateResult[0].accepted_at : null,
           familyMembers: familyResults || [],
-          documents: allDocuments || []
+          documents: allDocuments || [],
+          idCard: idCardResults.length > 0 ? idCardResults[0] : null
         });
       } else {
         return res.status(200).json({

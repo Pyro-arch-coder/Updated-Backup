@@ -887,83 +887,7 @@ const Profile = () => {
   // Determine if the user's status is 'Renewal'
   const isRenewalStatus = user && user.status === 'Renewal';
 
-  const downloadCombinedId = async () => {
-    try {
-      const frontElement = document.querySelector('.id-card.front');
-      const backElement = document.querySelector('.id-card.back');
-
-      if (!frontElement || !backElement) {
-        toast.error('Could not find ID card elements to download.');
-        return;
-      }
-
-      const addWatermark = (clonedDoc, side) => {
-        const clonedCard = clonedDoc.querySelector(`.id-card.${side}`);
-        if (clonedCard) {
-          const watermark = clonedDoc.createElement('div');
-          watermark.innerText = 'MSWDO COPY';
-          watermark.style.position = 'absolute';
-          watermark.style.top = '50%';
-          watermark.style.left = '50%';
-          watermark.style.transform = 'translate(-50%, -50%) rotate(-45deg)';
-          watermark.style.fontSize = '60px';
-          watermark.style.color = 'rgba(0, 0, 0, 0.15)';
-          watermark.style.fontWeight = 'bold';
-          watermark.style.pointerEvents = 'none';
-          watermark.style.textAlign = 'center';
-          watermark.style.width = '100%';
-          watermark.style.zIndex = '1000';
-          clonedCard.style.position = 'relative';
-          clonedCard.appendChild(watermark);
-        }
-      };
-
-      const canvasOptions = {
-        useCORS: true,
-        allowTaint: true,
-        scale: 3,
-      };
-
-      toast.loading('Generating ID card...');
-
-      const frontCanvas = await html2canvas(frontElement, {
-        ...canvasOptions,
-        onclone: (doc) => addWatermark(doc, 'front'),
-      });
-
-      const backCanvas = await html2canvas(backElement, {
-        ...canvasOptions,
-        onclone: (doc) => addWatermark(doc, 'back'),
-      });
-
-      const combinedCanvas = document.createElement('canvas');
-      const padding = 20; // 20px padding between images
-      combinedCanvas.width = frontCanvas.width + backCanvas.width + padding;
-      combinedCanvas.height = Math.max(frontCanvas.height, backCanvas.height);
-
-      const ctx = combinedCanvas.getContext('2d');
-      ctx.fillStyle = 'white'; // Set background to white
-      ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
-
-      ctx.drawImage(frontCanvas, 0, 0);
-      ctx.drawImage(backCanvas, frontCanvas.width + padding, 0);
-
-      const image = combinedCanvas.toDataURL('image/png', 1.0);
-      const link = document.createElement('a');
-      link.href = image;
-      link.download = `solo-parent-id-combined-${user?.code_id || 'user'}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.dismiss();
-      toast.success('ID Card downloaded successfully!');
-    } catch (error) {
-      toast.dismiss();
-      console.error('Error downloading combined ID card:', error);
-      toast.error('An error occurred while downloading the ID card.');
-    }
-  };
+  // ID card download functionality has been removed as per requirements
 
   const openEventModal = async (event) => {
     setSelectedEvent(event);
@@ -1731,121 +1655,37 @@ const Profile = () => {
                       </div>
                     ) : activeTab === 'cardId' && user?.status === 'Verified' && (
                       <div className="id-cards-container">
-                        {/* Front of ID */}
-                        <div className="id-card front">
-                          <div className="id-card-header">
-                            <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                            <div className="id-title">
-                              <h3>SOLO PARENT IDENTIFICATION CARD</h3>
-                              <h4>Republic of the Philippines</h4>
-                              <h4>DSWD Region III</h4>
-                            </div>
-                          </div>
-                          <div className="id-card-body">
-                            <div className="id-left-section">
-                              <div className="id-photo-container">
-                                <img 
-                                  src={user?.profilePic || avatar} 
-                                  alt="User" 
-                                  className="id-photo"
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = avatar;
-                                  }}
-                                />
-                              </div>
-                              <div className="id-category">
-                                Category: {user?.classification}
-                              </div>
-                              <div className="id-validity">
-                                Valid Until: {user?.validUntil }
-                              </div>
-                            </div>
-                            <div className="id-card-container">
-                              <div className="id-card-details">
-                                <div className="id-detail">
-                                  <span className="id-label">ID No:</span>
-                                  <span className="id-value">{user?.code_id || 'N/A'}</span>
-                                </div>
-                                <div className="id-detail">
-                                  <span className="id-label">Name:</span>
-                                  <span className="id-value">
-                                    {`${user?.first_name || ''} ${user?.middle_name || ''} ${user?.last_name || ''}${user?.suffix && user?.suffix !== 'none' ? ` ${user.suffix}` : ''}`}
-                                  </span>
-                                </div>
-                                <div className="id-detail">
-                                  <span className="id-label">Barangay:</span>
-                                  <span className="id-value">{user?.barangay || 'N/A'}</span>
-                                </div>
-                                <div className="id-detail">
-                                  <span className="id-label">Birthdate:</span>
-                                  <span className="id-value">
-                                    {user?.date_of_birth ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_of_birth)) : 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="id-detail">
-                                  <span className="id-label">Civil Status:</span>
-                                  <span className="id-value">{user?.civil_status || 'N/A'}</span>
-                                </div>
-                                <div className="id-detail">
-                                  <span className="id-label">Contact:</span>
-                                  <span className="id-value">{user?.contact_number || 'N/A'}</span>
-                                </div>
-                              </div>
-                              <div className="id-card-footer">
-                                <div className="footer-watermark">
-                                  <span>DSWD SOLO PARENT</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                        <div className="section-header">
+                          <h2>ID Card Information</h2>
                         </div>
-
-                        {/* Back of ID */}
-                        <div className="id-card back">
-                          <div className="id-card-header">
-                            <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
-                            <div className="id-title">
-                              <h3>SOLO PARENT IDENTIFICATION CARD</h3>
-                              <h4>Republic of the Philippines</h4>
-                              <h4>DSWD Region III</h4>
-                            </div>
+                        {user?.code_id ? (
+                          <>
+                            {user?.idCard ? (
+                              <div className="id-card-images">
+                                <div className="id-card-img-container">
+                                  <div className="id-card-img-wrapper">
+                                    <h4>Front</h4>
+                                    <img src={user.idCard.front_url} alt="ID Card Front" className="id-card-img" />
+                                  </div>
+                                  <div className="id-card-img-wrapper">
+                                    <h4>Back</h4>
+                                    <img src={user.idCard.back_url} alt="ID Card Back" className="id-card-img" />
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="no-id-card-images">
+                                <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" />
+                                <p>ID card images not issued yet</p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="no-id-message">
+                            <FontAwesomeIcon icon={faTimesCircle} className="warning-icon" />
+                            <p>ID card not issued yet</p>
                           </div>
-                          <div className="terms-section">
-                            <h3>Terms and Conditions</h3>
-                            <ol>
-                              <li>This ID is non-transferable</li>
-                              <li>Report loss/damage to DSWD office</li>
-                              <li>Present this ID when availing benefits</li>
-                              <li>Tampering invalidates this ID</li>
-                            </ol>
-                          </div>
-                          <div className="signature-section">
-                            <div className="signature-block">
-                              <div className="signature-line"></div>
-                              <span>Card Holder's Signature</span>
-                            </div>
-                            <div className="signature-block">
-                              <div className="signature-line"></div>
-                              <span>Authorized DSWD Official</span>
-                            </div>
-                          </div>
-                          <div className="id-card-footer">
-                            <div className="footer-watermark">
-                              <span>DSWD SOLO PARENT</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="id-card-actions">
-                          <button
-                            className="btn download-btn"
-                            onClick={downloadCombinedId}
-                            style={{ background: '#1976d2', color: 'white', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', border: 'none' }}
-                          >
-                            <FontAwesomeIcon icon={faDownload} style={{ marginRight: '8px' }} />
-                            Download ID (Front & Back)
-                          </button>
-                        </div>
+                        )}
                       </div>
                     )}
                   </>

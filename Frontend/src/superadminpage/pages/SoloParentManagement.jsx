@@ -324,12 +324,20 @@ const SoloParentManagement = () => {
 
   const printID = async () => {
     try {
+      // Check if a user is selected for ID printing
+      if (!selectedIDUser) {
+        console.error('No user selected for ID printing');
+        alert('Please select a user before printing an ID.');
+        return;
+      }
+      
       // Get front and back elements
       const frontElement = document.querySelector('.id-card.front');
       const backElement = document.querySelector('.id-card.back');
       
       if (!frontElement || !backElement) {
         console.error('ID card elements not found');
+        alert('ID card elements not found. Please try again.');
         return;
       }
 
@@ -374,47 +382,127 @@ const SoloParentManagement = () => {
       const frontCanvas = await html2canvas(frontElement, { ...options, width: frontRect.width, height: frontRect.height });
       const backCanvas = await html2canvas(backElement, { ...options, width: backRect.width, height: backRect.height });
 
-      // Open print window
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Print Solo Parent ID</title>
-            <style>
-              @page {
-                size: 3.375in 2.125in;
-                margin: 0;
-              }
-              body {
-                margin: 0;
-                padding: 0;
-              }
-              img {
-                width: 3.375in;
-                height: 2.125in;
-                object-fit: contain;
-                page-break-after: always;
-                display: block;
-              }
-            </style>
-          </head>
-          <body>
-            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" />
-            <img src="${backCanvas.toDataURL('image/png', 1.0)}" />
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+      // --- Cloudinary upload and DB insert ---
+      if (selectedIDUser) {
+        setSuccessMessage('Uploading ID to Cloudinary...');
+        setShowSuccessModal(true);
+        try {
+          console.log('Selected user for ID upload:', selectedIDUser);
+          
+          // Validate user object has required properties
+          const userId = selectedIDUser.userId || selectedIDUser.user_id || selectedIDUser.id;
+          const codeId = selectedIDUser.code_id || selectedIDUser.codeId;
+          
+          if (!userId) {
+            console.error('User ID not found in selectedIDUser:', selectedIDUser);
+            setSuccessMessage('Error: User ID not found');
+            setTimeout(() => setShowSuccessModal(false), 3000);
+            return;
+          }
+          
+          if (!codeId) {
+            console.error('Code ID not found in selectedIDUser:', selectedIDUser);
+            setSuccessMessage('Error: Code ID not found');
+            setTimeout(() => setShowSuccessModal(false), 3000);
+            return;
+          }
+          
+          const uploadResult = await uploadIDToCloudinary(frontCanvas, backCanvas, selectedIDUser);
+          console.log('Upload result:', uploadResult);
+          
+          if (uploadResult.success) {
+            setSuccessMessage(`ID uploaded to Cloudinary and saved! User ID: ${userId}`);
+          } else {
+            console.error('Upload failed:', uploadResult);
+            setSuccessMessage(`Failed to upload ID: ${uploadResult.error || 'Unknown error'}`);
+          }
+        } catch (err) {
+          console.error('Error in ID upload process:', err);
+          setSuccessMessage(`Error uploading to Cloudinary: ${err.message || 'Unknown error'}`);
+        }
+        setTimeout(() => setShowSuccessModal(false), 3000);
+      } else {
+        console.error('No user selected for ID upload');
+      }
+      // --- End Cloudinary upload ---
 
-      // Wait for images to load before printing
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-      }, 500);
+      // Check if pop-ups are blocked by the browser
+      const popupBlockerTest = window.open('', '_blank');
+      if (!popupBlockerTest) {
+        console.error('Pop-up blocker detected');
+        alert('Pop-up blocker is preventing the ID from printing. Please allow pop-ups for this site and try again.');
+        return;
+      }
+      popupBlockerTest.close();
+      
+      // Open print window with a check to ensure it opened successfully
+      const printWindow = window.open('', '_blank');
+      
+      // Check if the window was successfully opened and document is accessible
+      if (printWindow && printWindow.document) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Print Solo Parent ID</title>
+              <style>
+                @page {
+                  size: 3.375in 2.125in;
+                  margin: 0;
+                }
+                body {
+                  margin: 0;
+                  padding: 0;
+                }
+                img {
+                  width: 3.375in;
+                  height: 2.125in;
+                  object-fit: contain;
+                  page-break-after: always;
+                  display: block;
+                }
+              </style>
+            </head>
+            <body>
+              <img src="${(() => {
+                try {
+                  return frontCanvas.toDataURL('image/png', 1.0);
+                } catch (err) {
+                  console.error('Error converting front canvas to data URL:', err);
+                  return '';
+                }
+              })()}" />
+              <img src="${(() => {
+                try {
+                  return backCanvas.toDataURL('image/png', 1.0);
+                } catch (err) {
+                  console.error('Error converting back canvas to data URL:', err);
+                  return '';
+                }
+              })()}" />
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+
+        // Wait for images to load before printing
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, 500);
+      } else {
+        console.error('Failed to open print window. Pop-up might be blocked by the browser.');
+        alert('Failed to open print window. Please check if pop-ups are allowed for this site.');
+      }
 
     } catch (error) {
       console.error('Error printing ID:', error);
-      alert('Failed to print ID. Please try again.');
+      
+      // Provide more specific error messages based on the error type
+      if (error instanceof TypeError && error.message.includes("Cannot read properties of null")) {
+        alert('Failed to print ID: The print window could not be accessed. Please check if pop-ups are allowed for this site.');
+      } else {
+        alert(`Failed to print ID: ${error.message || 'Unknown error'}. Please try again.`);
+      }
     }
   };
 
@@ -732,8 +820,25 @@ const SoloParentManagement = () => {
       setSuccessMessage('Preparing IDs for printing...');
       setShowSuccessModal(true);
       
+      // Check if pop-ups are blocked by the browser
+      const popupBlockerTest = window.open('', '_blank');
+      if (!popupBlockerTest) {
+        console.error('Pop-up blocker detected');
+        alert('Pop-up blocker is preventing the ID from printing. Please allow pop-ups for this site and try again.');
+        setShowSuccessModal(false);
+        return;
+      }
+      popupBlockerTest.close();
+      
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
+      if (!printWindow || !printWindow.document) {
+        console.error('Failed to open print window');
+        alert('Failed to open print window. Please check if pop-ups are allowed for this site.');
+        setShowSuccessModal(false);
+        return;
+      }
+      
       printWindow.document.write(`
         <html>
           <head>
@@ -993,19 +1098,58 @@ const SoloParentManagement = () => {
           }
         });
         
+        // Upload to Cloudinary
+        try {
+          setSuccessMessage(`Uploading ID ${index + 1} of ${selectedUsers.length} to Cloudinary...`);
+          
+          // Validate user object has required properties
+          const userId = user.userId || user.user_id || user.id;
+          const codeId = user.code_id || user.codeId;
+          
+          if (!userId || !codeId) {
+            console.error('Missing user ID or code ID for user:', user);
+            // Continue with printing even if upload fails
+          } else {
+            // Upload to Cloudinary in the background
+            await uploadIDToCloudinary(frontCanvas, backCanvas, user)
+              .then(result => {
+                console.log(`ID card upload successful for user ${userId}:`, result);
+              })
+              .catch(err => {
+                console.error(`ID card upload failed for user ${userId}:`, err);
+                // Continue with printing even if upload fails
+              });
+          }
+        } catch (uploadError) {
+          console.error('Error uploading ID to Cloudinary:', uploadError);
+          // Continue with printing even if upload fails
+        }
+        
         // Add to print window - front of ID
-        printWindow.document.write(`
-          <div class="id-card-wrapper">
-            <img src="${frontCanvas.toDataURL('image/png', 1.0)}" alt="ID Card Front" />
-          </div>
-        `);
+        try {
+          const frontDataUrl = frontCanvas.toDataURL('image/png', 1.0);
+          printWindow.document.write(`
+            <div class="id-card-wrapper">
+              <img src="${frontDataUrl}" alt="ID Card Front" />
+            </div>
+          `);
+        } catch (err) {
+          console.error('Error converting front canvas to data URL:', err);
+          // Continue with other IDs even if this one fails
+        }
         
         // Add to print window - back of ID (on a new page)
-        printWindow.document.write(`
-          <div class="id-card-wrapper">
-            <img src="${backCanvas.toDataURL('image/png', 1.0)}" alt="ID Card Back" />
-          </div>
-        `);
+        try {
+          const backDataUrl = backCanvas.toDataURL('image/png', 1.0);
+          printWindow.document.write(`
+            <div class="id-card-wrapper">
+              <img src="${backDataUrl}" alt="ID Card Back" />
+            </div>
+          `);
+        } catch (err) {
+          console.error('Error converting back canvas to data URL:', err);
+          // Continue with other IDs even if this one fails
+        }
         
         // Clean up
         document.body.removeChild(tempContainer);
@@ -1026,8 +1170,8 @@ const SoloParentManagement = () => {
       
     } catch (error) {
       console.error('Error printing bulk IDs:', error);
-      setSuccessMessage('Failed to print IDs');
-      setTimeout(() => setShowSuccessModal(false), 2000);
+      setSuccessMessage('Failed to print IDs: ' + (error.message || 'Unknown error'));
+      setTimeout(() => setShowSuccessModal(false), 3000);
     }
   };
 
@@ -1276,6 +1420,59 @@ const SoloParentManagement = () => {
   const handleSetBeneficiaryClick = (user) => {
     setBeneficiaryToSet(user);
     setShowSetBeneficiaryModal(true);
+  };
+
+  const uploadIDToCloudinary = async (frontCanvas, backCanvas, user) => {
+    try {
+      console.log('Uploading ID to Cloudinary for user:', user);
+      
+      // Get base64 images with error handling
+      let frontBase64, backBase64;
+      
+      try {
+        frontBase64 = frontCanvas.toDataURL('image/png', 1.0);
+      } catch (err) {
+        console.error('Error converting front canvas to data URL:', err);
+        throw new Error('Failed to process front image for upload');
+      }
+      
+      try {
+        backBase64 = backCanvas.toDataURL('image/png', 1.0);
+      } catch (err) {
+        console.error('Error converting back canvas to data URL:', err);
+        throw new Error('Failed to process back image for upload');
+      }
+      
+      // Extract user ID - check all possible property names
+      const userId = user.userId || user.user_id || user.id;
+      if (!userId) {
+        console.error('User ID not found in user object:', user);
+        throw new Error('User ID not found');
+      }
+      
+      // Extract code ID
+      const codeId = user.code_id || user.codeId;
+      if (!codeId) {
+        console.error('Code ID not found in user object:', user);
+        throw new Error('Code ID not found');
+      }
+      
+      console.log(`Sending ID card upload request for user ID: ${userId}, code ID: ${codeId}`);
+      
+      // Make API request
+      const response = await axios.post(`${API_URL}/api/idcard/upload-id-card`, {
+        userId: userId,
+        codeId: codeId,
+        frontImage: frontBase64,
+        backImage: backBase64,
+      });
+      
+      console.log('ID card upload response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in uploadIDToCloudinary:', error);
+      throw error;
+    }
   };
 
   return (
@@ -2167,4 +2364,4 @@ const SoloParentManagement = () => {
   );
 };
 
-export default SoloParentManagement; 
+export default SoloParentManagement;
