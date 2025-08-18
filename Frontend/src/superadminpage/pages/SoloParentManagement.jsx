@@ -707,7 +707,7 @@ const SoloParentManagement = () => {
         backContainer.innerHTML = `
           <div class="id-card back">
             <div class="id-card-header">
-              <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
+              <img src="${bagongPilipinasLogo}" alt="Bagong Pilipinas Logo" class="id-logo" />
               <div class="id-title">
                 <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                 <h4>Republic of the Philippines</h4>
@@ -1029,7 +1029,8 @@ const SoloParentManagement = () => {
         backContainer.innerHTML = `
           <div class="id-card back">
             <div class="id-card-header">
-              <img src="${dswdLogo}" alt="DSWD Logo" class="id-logo" />
+              <img src="${bagongPilipinasLogo}" alt="Bagong Pilipinas Logo" class="id-logo" />
+
               <div class="id-title">
                 <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                 <h4>Republic of the Philippines</h4>
@@ -2232,7 +2233,7 @@ const SoloParentManagement = () => {
                       <div className="id-title">
                         <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                         <h4>Republic of the Philippines</h4>
-                        <h4>DSWD Region III</h4>
+                        <h4>Bagong Pilipinas</h4>
                       </div>
                       <img src={mswdoLogo} alt="MSWDO Logo" className="id-logo" style={{ width: '60px', height: '60px' }} />
                     </div>
@@ -2308,18 +2309,18 @@ const SoloParentManagement = () => {
                 {/* Back of ID */}
                 <div className="id-card back">
                   <div className="id-card-header">
-                    <img src={dswdLogo} alt="DSWD Logo" className="id-logo" />
+                    <img src={bagongPilipinasLogo} alt="Bagong Pilipinas Logo" className="id-logo" />
                     <div className="id-title">
                       <h3>SOLO PARENT IDENTIFICATION CARD</h3>
                       <h4>Republic of the Philippines</h4>
-                      <h4>DSWD Region III</h4>
+                      <h4>Bagong Pilipinas</h4>
                     </div>
                   </div>
                   <div className="terms-section">
                     <h3>Terms and Conditions</h3>
                     <ol>
                       <li>This ID is non-transferable</li>
-                      <li>Report loss/damage to DSWD office</li>
+                      <li>Report loss/damage to MSWDO office</li>
                       <li>Present this ID when availing benefits</li>
                       <li>Tampering invalidates this ID</li>
                     </ol>
@@ -2331,7 +2332,7 @@ const SoloParentManagement = () => {
                     </div>
                     <div className="signature-block">
                       <div className="signature-line"></div>
-                      <span>Authorized DSWD Official</span>
+                      <span>Authorized MSWDO Official</span>
                     </div>
                   </div>
                 </div>
