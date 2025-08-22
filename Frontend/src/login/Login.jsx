@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
 import FaceAuth from "./FaceAuth";
 import { toast } from 'react-toastify';
-import mswdoLogo from "../assets/MSWDO LOGO.png";
 
 // Define API base URL with environment variable and fallback
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -99,12 +98,6 @@ const Login = () => {
         if (user.role === "admin") {
           safeSetItem("id", user.id);
           safeSetItem("barangay", user.barangay);
-        }
-
-        // Store superadmin ID and email if the user is a superadmin
-        if (user.role === "superadmin") {
-          safeSetItem("superadminId", user.id);
-          safeSetItem("superadminEmail", user.email);
         }
 
         // Save credentials if rememberMe is checked
@@ -220,95 +213,91 @@ const Login = () => {
 
   return (
     <div className={styles.loginContainer}>
-      <div className={styles.imageColumn}></div>
-      <div className={styles.formColumn}>
-        <div className={styles.loginBox}>
-          <img src={mswdoLogo} alt="MSWDO Logo" className={styles.logo} />
-          <h2>Login</h2>
-          {error && <p className={styles.errorMessage}>{error}</p>}
+      <div className={styles.loginBox}>
+        <h2>Login</h2>
+        {error && <p className={styles.errorMessage}>{error}</p>}
+        
+        <form onSubmit={handleLogin}>
+          <div className={styles.inputGroup}>
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              name="email"
+              placeholder="Enter your email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
           
-          <form onSubmit={handleLogin}>
-            <div className={styles.inputGroup}>
-              <label htmlFor="email">Email</label>
+          <div className={styles.inputGroup}>
+            <label htmlFor="password">Password</label>
+            <div className={styles.passwordContainer}>
               <input
-                id="email"
-                type="email"
-                name="email"
-                placeholder="Enter your email"
-                value={formData.email}
+                id="password"
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="Enter your password"
+                value={formData.password}
                 onChange={handleInputChange}
                 required
               />
-            </div>
-            
-            <div className={styles.inputGroup}>
-              <label htmlFor="password">Password</label>
-              <div className={styles.passwordContainer}>
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                />
-                <button
-                  type="button"
-                  className={styles.passwordToggle}
-                  onClick={() => setShowPassword(!showPassword)}
-                  data-visible={showPassword}
-                >
-                </button>
-              </div>
-            </div>
-            
-            <div className={styles.rememberMe}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                Remember me
-              </label>
-            </div>
-            
-            <div className={styles.forgotPassword}>
-              <button 
+              <button
                 type="button"
-                className={styles.forgotPasswordBtn}
-                onClick={() => navigate('/forgot-password')}
+                className={styles.passwordToggle}
+                onClick={() => setShowPassword(!showPassword)}
+                data-visible={showPassword}
               >
-                Forgot Password?
               </button>
             </div>
-            
-            <button 
-              type="submit" 
-              className={styles.loginBtn}
-              disabled={loading}
-            >
-              {loading ? "Logging in..." : "Login"}
-            </button>
-
-            <div className={styles.divider}>
-              <span>OR</span>
-            </div>
-
-            <button
-              type="button"
-              className={styles.faceAuthBtn}
-              onClick={openFaceAuth}
-            >
-              Login with Face Recognition
-            </button>
-          </form>
+          </div>
           
-          <p className={styles.signupText}>
-            Don't have an account? <a href="/signup">Sign Up</a>
-          </p>
-        </div>
+          <div className={styles.rememberMe}>
+            <label>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Remember me
+            </label>
+          </div>
+          
+          <div className={styles.forgotPassword}>
+            <button 
+              type="button"
+              className={styles.forgotPasswordBtn}
+              onClick={() => navigate('/forgot-password')}
+            >
+              Forgot Password?
+            </button>
+          </div>
+          
+          <button 
+            type="submit" 
+            className={styles.loginBtn}
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+
+          <div className={styles.divider}>
+            <span>OR</span>
+          </div>
+
+          <button
+            type="button"
+            className={styles.faceAuthBtn}
+            onClick={openFaceAuth}
+          >
+            Login with Face Recognition
+          </button>
+        </form>
+        
+        <p className={styles.signupText}>
+          Don't have an account? <a href="/signup">Sign Up</a>
+        </p>
       </div>
     </div>
   );

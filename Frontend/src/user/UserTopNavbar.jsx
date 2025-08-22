@@ -41,6 +41,39 @@ const UserTopNavbar = ({ onNavigate }) => {
   const [activeSection, setActiveSection] = useState('profile');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editableUser, setEditableUser] = useState(null);
+  const [editCount, setEditCount] = useState(0);
+  const [lastEditDate, setLastEditDate] = useState(null);
+  const [isEditDisabled, setIsEditDisabled] = useState(false);
+  const [editError, setEditError] = useState('');
+  
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return '';
+    
+    const birthDate = new Date(birthdate);
+    const today = new Date();
+    
+    // Calculate the difference in years
+    let age = today.getFullYear() - birthDate.getFullYear();
+    
+    // Adjust if birthday hasn't occurred yet this year
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age > 0 ? age.toString() : '';
+  };
+
+  const handleBirthdateChange = (e) => {
+    const birthdate = e.target.value;
+    const age = calculateAge(birthdate);
+    
+    setEditableUser(prev => ({
+      ...prev,
+      date_of_birth: birthdate,
+      age: age // This assumes you have an 'age' field in your user object
+    }));
+  };
 
   const notificationRef = useRef(null);
 
@@ -85,6 +118,28 @@ const UserTopNavbar = ({ onNavigate }) => {
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+
+  // Load user data and edit history
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData) {
+      setUser(userData);
+      setEditableUser({...userData});
+      
+      // Load edit history from local storage
+      const editHistory = JSON.parse(localStorage.getItem('profileEditHistory') || '[]');
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      // Filter edits from the last 7 days
+      const recentEdits = editHistory.filter(edit => new Date(edit.date) > oneWeekAgo);
+      
+      setEditCount(recentEdits.length);
+      setLastEditDate(recentEdits[0]?.date || null);
+      setIsEditDisabled(recentEdits.length >= 2);
+    }
+    setIsLoading(false);
+  }, []);
 
   // Fetch user details
   useEffect(() => {
@@ -408,25 +463,6 @@ const UserTopNavbar = ({ onNavigate }) => {
     return `${formattedHour}:${minutes} ${ampm}`;
   };
 
-  // Update the notification icon function
-
-
-  useEffect(() => {
-    const handlePopState = () => {
-      // Only clear storage and redirect if we're actually logging out
-      if (isLoggingOut) {
-        localStorage.removeItem("userToken");
-        localStorage.removeItem("UserId");
-        window.history.pushState(null, "", "/login");
-        window.location.replace("/login");
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isLoggingOut]);
-
   const handleChangePassword = () => {
     setShowChangePasswordModal(true);
     setShowDropdown(false);
@@ -499,10 +535,18 @@ const UserTopNavbar = ({ onNavigate }) => {
 
   const handleUpdateProfile = async () => {
     try {
+      // Check edit limit
+      if (isEditDisabled) {
+        setEditError('You have reached your weekly edit limit (2 edits per week).');
+        return;
+      }
+
+      // Update user in the database
       const response = await fetch(`${API_BASE_URL}/api/updateUserInformation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
           userId: loggedInUserId,
@@ -514,33 +558,63 @@ const UserTopNavbar = ({ onNavigate }) => {
           date_of_birth: editableUser.date_of_birth,
           place_of_birth: editableUser.place_of_birth,
           religion: editableUser.religion,
-          civil_status: editableUser.civil_status,
           income: editableUser.income,
-          contact_number: editableUser.contact_number
+          contact_number: editableUser.contact_number,
+          barangay: editableUser.barangay,
+          // Include other fields as needed by your API
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Update edit history
+        const editHistory = JSON.parse(localStorage.getItem('profileEditHistory') || '[]');
+        const newEdit = { 
+          date: new Date().toISOString(),
+          changes: {
+            barangay: editableUser.barangay,
+            // Track other fields if needed
+          }
+        };
+        
+        const updatedHistory = [newEdit, ...editHistory];
+        localStorage.setItem('profileEditHistory', JSON.stringify(updatedHistory));
+        
+        // Calculate new edit count and check if limit is reached
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const recentEdits = updatedHistory.filter(edit => new Date(edit.date) > oneWeekAgo);
+        const newEditCount = recentEdits.length;
+        
+        // Update local storage with new user data
+        const updatedUser = { ...user, ...editableUser };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Update state
+        setUser(updatedUser);
+        setEditCount(newEditCount);
+        setLastEditDate(newEdit.date);
+        setIsEditDisabled(newEditCount >= 2);
+        
+        // Show success message
         if (window.toast) {
-          window.toast.success('Profile updated successfully');
-        } else {
-          console.log('Profile updated successfully');
+          window.toast.success('Profile updated successfully!');
         }
-        setUser({ ...editableUser });
-        setShowEditProfileModal(false);
+        
+        // Close modal after a short delay
+        setTimeout(() => {
+          setShowEditProfileModal(false);
+          setEditError('');
+        }, 1000);
       } else {
-        const errorData = await response.json();
-        if (window.toast) {
-          window.toast.error(errorData.error || 'Failed to update profile.');
-        } else {
-          console.error('Failed to update profile:', errorData.error);
-        }
+        const errorMessage = data.message || 'Failed to update profile. Please try again.';
+        setEditError(errorMessage);
+        console.error('Failed to update profile:', errorMessage);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      if (window.toast) {
-        window.toast.error('An error occurred while updating the profile.');
-      }
+      setEditError('An unexpected error occurred. Please try again.');
     }
   };
 
@@ -810,16 +884,32 @@ const UserTopNavbar = ({ onNavigate }) => {
                   <label>Suffix</label>
                   <input type="text" value={editableUser.suffix || ''} onChange={(e) => setEditableUser({...editableUser, suffix: e.target.value})} />
                 </div>
-                <div className="form-group">
+                <div className="form-group" style={{ gridColumn: '1 / 2' }}>
                   <label>Gender</label>
-                  <select value={editableUser.gender || ''} onChange={(e) => setEditableUser({...editableUser, gender: e.target.value})}>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
+                  <input 
+                    type="text" 
+                    value={editableUser.gender || ''} 
+                    readOnly 
+                    className="readonly-input"
+                  />
                 </div>
-                <div className="form-group">
+                <div className="form-group" style={{ gridColumn: '2 / 3' }}>
                   <label>Birthdate</label>
-                  <input type="date" value={editableUser.date_of_birth ? editableUser.date_of_birth.split('T')[0] : ''} onChange={(e) => setEditableUser({...editableUser, date_of_birth: e.target.value})} />
+                  <input 
+                    type="text" 
+                    value={editableUser.date_of_birth ? new Date(editableUser.date_of_birth).toLocaleDateString() : ''} 
+                    readOnly 
+                    className="readonly-input"
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: '3 / 4' }}>
+                  <label>Age</label>
+                  <input 
+                    type="text" 
+                    value={editableUser.age || calculateAge(editableUser.date_of_birth) || ''} 
+                    readOnly 
+                    className="readonly-input"
+                  />
                 </div>
                 <div className="form-group full-width">
                   <label>Place of Birth</label>
@@ -827,20 +917,15 @@ const UserTopNavbar = ({ onNavigate }) => {
                 </div>
                 <div className="form-group">
                   <label>Barangay</label>
-                  <input type="text" value={editableUser.barangay || ''} disabled />
+                  <input 
+                    type="text" 
+                    value={editableUser.barangay || ''} 
+                    onChange={(e) => setEditableUser({...editableUser, barangay: e.target.value})}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Religion</label>
                   <input type="text" value={editableUser.religion || ''} onChange={(e) => setEditableUser({...editableUser, religion: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label>Civil Status</label>
-                   <select value={editableUser.civil_status || ''} onChange={(e) => setEditableUser({...editableUser, civil_status: e.target.value})}>
-                    <option value="Single">Single</option>
-                    <option value="Married">Married</option>
-                    <option value="Widowed">Widowed</option>
-                    <option value="Divorced">Divorced</option>
-                  </select>
                 </div>
                 <div className="form-group">
                   <label>Monthly Income</label>
@@ -852,12 +937,35 @@ const UserTopNavbar = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="form-actions">
-                <button type="button" className="cancel-btn" onClick={() => setShowEditProfileModal(false)}>
-                  Cancel
-                </button>
-                <button type="button" className="submit-btn" onClick={handleUpdateProfile}>
-                  Save Changes
-                </button>
+                {isEditDisabled ? (
+                  <div className="form-group full-width" style={{ marginBottom: '1rem' }}>
+                    <div className="edit-limit-message">
+                      <FontAwesomeIcon icon={faInfoCircle} />
+                      <span>You have reached your weekly edit limit (2 edits per week).</span>
+                    </div>
+                  </div>
+                ) : editCount > 0 ? (
+                  <div className="edit-limit-container">
+                    <div className="edit-count-info">
+                      <FontAwesomeIcon icon={faInfoCircle} />
+                      <span>Edits: {editCount}/2 this week</span>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="form-buttons">
+                  <button type="button" className="cancel-btn" onClick={() => setShowEditProfileModal(false)}>
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`submit-btn ${isEditDisabled ? 'disabled' : ''}`} 
+                    onClick={handleUpdateProfile}
+                    disabled={isEditDisabled}
+                  >
+                    {isEditDisabled ? 'Edit Limit Reached' : 'Save Changes'}
+                  </button>
+                </div>
+                {editError && <div className="error-message">{editError}</div>}
               </div>
           </div>
         </div>

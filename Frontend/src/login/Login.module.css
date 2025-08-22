@@ -1,85 +1,103 @@
 .loginContainer {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     height: 100vh;
-    background-color: white;
-    position: relative;
-    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
-}
-
-.imageColumn {
-    background-image: url('../assets/hero-bg.jpg');
+    background-image: url('../assets/hero-bg.jpg'); /* Updated path */
     background-size: cover;
     background-position: center;
     position: relative;
+    padding: 20px;
 }
-
-.imageColumn::before {
+  
+/* Green overlay with animation */
+.loginContainer::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 128, 64, 0.6);
+    background-color: rgba(0, 128, 64, 0.6); /* Green hue overlay */
+    z-index: 1;
+    animation: pulseOverlay 8s infinite alternate;
 }
 
-.formColumn {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-    box-shadow: -20px 0 30px rgba(0, 0, 0, 0.5);
+@keyframes pulseOverlay {
+    0% { background-color: rgba(0, 128, 64, 0.6); }
+    100% { background-color: rgba(0, 128, 64, 0.7); }
 }
-
+  
 .loginBox {
-    width: 350px;
+    background: white;
+    padding: 3rem;
+    border-radius: 12px;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
+    width: 500px;
+    max-width: 100%;
     text-align: center;
-    animation: fadeIn 0.8s ease-out;
-    padding: 2rem;
+    position: relative;
+    z-index: 2; /* Position above the overlay */
+    overflow: hidden;
+    animation: fadeIn 0.8s ease-out, slideUp 0.8s ease-out;
 }
 
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); }
+    to { transform: translateY(0); }
+}
+  
 .loginBox h2 {
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     color: #333;
     font-size: 2rem;
     font-weight: 700;
+    animation: fadeIn 1s ease-out 0.3s both;
 }
-
-.subtitle {
-    color: #666;
-    margin-bottom: 2rem;
-}
-
+  
 .inputGroup {
     margin-bottom: 1.5rem;
     text-align: left;
-    width: 100%;
+    animation: fadeIn 1s ease-out calc(0.4s + var(--input-delay, 0s)) both;
 }
 
+/* Apply different delays to each input group */
+.inputGroup:nth-child(2) {
+    --input-delay: 0.1s;
+}
+
+.inputGroup:nth-child(3) {
+    --input-delay: 0.2s;
+}
+  
 .inputGroup label {
     display: block;
     margin-bottom: 8px;
     color: #555;
     font-weight: 600;
 }
-
+  
 .inputGroup input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
+    width: 92%;
+    padding: 14px;
+    border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 16px;
-    transition: border 0.3s, box-shadow 0.3s;
-    box-sizing: border-box;
+    transition: border 0.3s, box-shadow 0.3s, transform 0.2s;
 }
-
+  
 .inputGroup input:focus {
     border-color: #16C47F;
     outline: none;
-    box-shadow: 0px 0px 6px rgba(22, 196, 127, 0.2);
+    box-shadow: 0px 0px 6px rgba(22, 196, 127, 0.5);
+    transform: scale(1.02);
 }
-
+  
 .errorMessage {
     color: #e74c3c;
     font-size: 14px;
@@ -287,22 +305,17 @@
 
 .passwordContainer {
     position: relative;
-    width: 100%;
     display: flex;
     align-items: center;
 }
 
 .passwordContainer input {
     width: 100%;
-    padding-right: 40px;
-    box-sizing: border-box;
 }
 
 .passwordToggle {
     position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
+    right: 10px;
     background: none;
     border: none;
     cursor: pointer;
@@ -311,13 +324,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    font-size: 16px;
-}
-
-.passwordToggle:hover {
-    color: #16C47F;
+    width: 30px;
+    height: 30px;
 }
 
 .passwordToggle[data-visible="true"]::before {
@@ -336,6 +344,10 @@
 
 .passwordToggle:focus {
     outline: none;
+}
+
+.passwordToggle:hover {
+    color: #16C47F;
 }
 
 @media (max-width: 480px) {
@@ -726,104 +738,4 @@
   font-size: 16px;
   display: block;
   margin-bottom: 8px;
-}
-
-.logo {
-    width: 200px;
-    height: auto;
-    margin-bottom: 1.5rem;
-    animation: fadeIn 1s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* Responsive adjustments */
-@media (max-width: 1024px) {
-    .loginContainer {
-        grid-template-columns: 1.5fr 1fr;
-    }
-    .formColumn {
-        padding: 1.5rem;
-    }
-    .loginBox {
-        padding: 1.5rem;
-    }
-}
-
-@media (max-width: 768px) {
-    .loginContainer {
-        grid-template-columns: 1fr;
-        height: auto;
-        min-height: 100vh;
-        box-shadow: none;
-    }
-
-    .imageColumn {
-        display: none;
-    }
-
-    .formColumn {
-        padding: 2rem 1rem;
-        box-shadow: none;
-        justify-content: center;
-    }
-
-    .loginBox {
-        width: 100%;
-        max-width: 400px;
-        padding: 1rem;
-    }
-
-    .inputGroup input, .loginBtn {
-        padding: 10px;
-        font-size: 14px;
-    }
-
-    .loginBox h2 {
-        font-size: 1.8rem;
-        margin-bottom: 1rem;
-    }
-
-    .subtitle {
-        font-size: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .logo {
-        width: 150px;
-        margin-bottom: 1rem;
-    }
-
-    .rememberMe, .forgotPassword {
-        font-size: 14px;
-    }
-
-    .passwordToggle {
-        font-size: 14px;
-        width: 20px;
-        height: 20px;
-        right: 8px;
-    }
-}
-
-@media (max-width: 480px) {
-    .loginBox {
-        padding: 1rem;
-    }
-  
-    .loginBox h2 {
-        font-size: 1.7rem;
-    }
-  
-    .inputGroup input, .loginBtn {
-        padding: 12px;
-        font-size: 14px;
-    }
-  
-    .signupText {
-        font-size: 13px;
-    }
 }

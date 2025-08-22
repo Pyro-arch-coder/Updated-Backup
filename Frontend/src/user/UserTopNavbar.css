@@ -1079,8 +1079,37 @@
 
 .edit-profile-modal .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem 1.5rem;
+  width: 100%;
+}
+
+/* Make sure the place of birth and other full-width fields span all columns */
+.edit-profile-modal .form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .edit-profile-modal .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  /* Make sure gender, birthdate, and age stack on mobile */
+  .edit-profile-modal .form-group[style*="grid-column"] {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+/* Make age field take full width on smaller screens */
+@media (max-width: 600px) {
+  .edit-profile-modal .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .edit-profile-modal .form-group:has(input[readonly]) {
+    grid-column: 1 / -1;
+  }
 }
 
 .edit-profile-modal .form-group {
@@ -1111,9 +1140,12 @@
   box-sizing: border-box;
 }
 
-.edit-profile-modal .form-group input:disabled {
+.edit-profile-modal .form-group input:disabled,
+.edit-profile-modal .form-group input[readonly] {
   background-color: #f5f5f5;
   cursor: not-allowed;
+  color: #666;
+  border-color: #e0e0e0;
 }
 
 .edit-profile-modal .form-group input:focus,
@@ -1124,11 +1156,43 @@
 
 .edit-profile-modal .form-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
     margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid #e5e5e5;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.edit-limit-container {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.edit-limit-container .edit-count-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8f9fa;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: #495057;
+    border: 1px solid #e9ecef;
+}
+
+.edit-limit-container .edit-count-info svg {
+    color: #2e7d32;
+    font-size: 0.9rem;
+}
+
+.form-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-left: auto;
 }
 
 .edit-profile-modal .cancel-btn,
