@@ -146,6 +146,7 @@ export default function Layout({ children }) {
   const [passwordError, setPasswordError] = React.useState('');
   const [passwordSuccess, setPasswordSuccess] = React.useState('');
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(new Date());
 
   // Fetch notifications for the logged-in admin's barangay
   const fetchNotifications = async () => {
@@ -358,6 +359,15 @@ export default function Layout({ children }) {
     };
   }, []); // Run once on mount and cleanup on unmount
 
+  // Live clock effect
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <Box sx={{
       display: 'flex',
@@ -380,17 +390,65 @@ export default function Layout({ children }) {
           >
             <MenuIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
           </IconButton>
+          {/* Dashboard Title */}
           <Typography variant="h6" noWrap component="div" sx={{
-            flexGrow: 1,
-            overflow: 'hidden',       // Hide overflowing content
-            textOverflow: 'ellipsis',  // Show ellipsis for truncated text
-            fontSize: { xs: '0.875rem', sm: '1.25rem' }, // Responsive font size
-            lineHeight: 1.2, // Tighter line height
-            color: '#000000', // Changed color
-            fontWeight: 600 // Added font weight
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            fontSize: { xs: '0.875rem', sm: '1.25rem' },
+            lineHeight: 1.2,
+            color: '#000000',
+            fontWeight: 600,
+            minWidth: 0,
+            flexShrink: 1
           }}>
             Admin Dashboard - {localStorage.getItem("barangay") || "Loading..."}
           </Typography>
+          
+          {/* Live Clock and Date - Centered */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            flexGrow: 1,
+            gap: 0.5
+          }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#16C47F',
+                fontWeight: 600,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              <i className="fas fa-clock" style={{ fontSize: '0.875rem' }}></i>
+              {currentTime.toLocaleString('en-PH', { 
+                timeZone: 'Asia/Manila',
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#666',
+                fontWeight: 500,
+                fontSize: { xs: '0.65rem', sm: '0.75rem' }
+              }}
+            >
+              {currentTime.toLocaleDateString('en-PH', { 
+                timeZone: 'Asia/Manila',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </Typography>
+          </Box>
           <Box sx={{
             display: 'flex',
             alignItems: 'center',

@@ -3,6 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as XLSX from 'xlsx';
 import { Box, FormControl, InputLabel, Select, MenuItem, TextField, Button, Alert, CircularProgress, Typography, Paper, Grid } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import jsPDF from 'jspdf';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
@@ -54,11 +55,17 @@ const SDashboard = () => {
   const [successMessage, setSuccessMessage] = useState('');
   
   const [reportCount, setReportCount] = useState(() => {
-    const count = parseInt(localStorage.getItem('superadmin_report_count') || '0', 10);
+    const count = parseInt(localStorage.getItem('superadmin_excel_count') || '0', 10);
     return isNaN(count) ? 0 : count;
   });
   const [reportLimitMessage, setReportLimitMessage] = useState('');
   const [exportFilter, setExportFilter] = useState('all');
+  const [canExportPdf, setCanExportPdf] = useState(true);
+  const [pdfCount, setPdfCount] = useState(() => {
+    const count = parseInt(localStorage.getItem('superadmin_pdf_count') || '0', 10);
+    return isNaN(count) ? 0 : count;
+  });
+  const [canExportExcel, setCanExportExcel] = useState(true);
 
   const barangays = [
     "All",
@@ -1429,8 +1436,42 @@ const SDashboard = () => {
   }, []);
 
   useEffect(() => {
-    const count = parseInt(localStorage.getItem('superadmin_report_count') || '0', 10);
-    setReportCount(isNaN(count) ? 0 : count);
+    const checkExportLimits = () => {
+      const excelCount = parseInt(localStorage.getItem('superadmin_excel_count') || '0', 10);
+      const pdfCount = parseInt(localStorage.getItem('superadmin_pdf_count') || '0', 10);
+      
+      setReportCount(excelCount);
+      setPdfCount(pdfCount);
+      setCanExportExcel(excelCount < 5);
+      setCanExportPdf(pdfCount < 5);
+      
+      if (excelCount >= 5 && pdfCount >= 5) {
+        setReportLimitMessage('You have reached the maximum of 5 exports per day for both Excel and PDF.');
+      } else if (excelCount >= 5) {
+        setReportLimitMessage('You have reached the maximum of 5 Excel exports per day.');
+      } else if (pdfCount >= 5) {
+        setReportLimitMessage('You have reached the maximum of 5 PDF exports per day.');
+      } else {
+        setReportLimitMessage('');
+      }
+    };
+
+    checkExportLimits();
+    
+    // Check if it's a new day and reset counts
+    const lastExportDate = localStorage.getItem('superadmin_last_export_date');
+    const today = new Date().toDateString();
+    
+    if (lastExportDate !== today) {
+      localStorage.setItem('superadmin_excel_count', '0');
+      localStorage.setItem('superadmin_pdf_count', '0');
+      localStorage.setItem('superadmin_last_export_date', today);
+      setReportCount(0);
+      setPdfCount(0);
+      setCanExportExcel(true);
+      setCanExportPdf(true);
+      setReportLimitMessage('');
+    }
   }, []);
 
   const handleExport = async () => {
@@ -1671,6 +1712,16 @@ const SDashboard = () => {
     setSuccessMessage('Generated Success');
     setShowSuccessModal(true);
     setTimeout(() => setShowSuccessModal(false), 2000);
+    
+    // Update Excel count in localStorage
+    const newExcelCount = reportCount + 1;
+    localStorage.setItem('superadmin_excel_count', newExcelCount.toString());
+    setReportCount(newExcelCount);
+    
+    if (newExcelCount >= 5) {
+      setCanExportExcel(false);
+      setReportLimitMessage('You have reached the maximum of 5 Excel exports per day.');
+    }
   };
 
   // Add date validation function
@@ -1719,11 +1770,318 @@ const SDashboard = () => {
     return `${currentYear}-12-31`;
   };
 
+  // PDF Export Function
+  const handleExportPdf = async () => {
+    // Check PDF export limit
+    if (!canExportPdf) {
+      setReportLimitMessage('You have reached the maximum of 5 PDF exports per day.');
+      return;
+    }
+    
+    // Date validation
+    if (!startDate || !endDate) {
+      setDateError('Please select both start and end dates for the report');
+      return;
+    }
+    if (!validateDates(startDate, endDate)) {
+      return;
+    }
+
+    try {
+      // Generate PDF using jsPDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPosition = margin;
+
+      // Add logo to header
+      try {
+        const logoImg = new Image();
+        logoImg.src = '/logo.jpg';
+        await new Promise((resolve, reject) => {
+          logoImg.onload = resolve;
+          logoImg.onerror = reject;
+        });
+        
+        // Add logo on the left side (much smaller size)
+        pdf.addImage(logoImg, 'JPEG', margin, yPosition, 15, 15);
+        
+        // Header text positioned to avoid logo overlap (moved to right)
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(0, 0, 0); // Black
+        pdf.text('SANTA MARIA MUNICIPALITY', margin + 25, yPosition + 5);
+        pdf.text('Municipal Social Welfare and Development Office (MSWDO)', margin + 25, yPosition + 11);
+        pdf.text('SOLO PARENT ANALYTICS REPORT', margin + 25, yPosition + 17);
+        yPosition += 25;
+      } catch (error) {
+        console.log('Logo not found, using text-only header');
+        // Fallback to text-only header
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(0, 0, 0); // Black
+        pdf.text('SANTA MARIA MUNICIPALITY', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 6;
+        pdf.text('Municipal Social Welfare and Development Office (MSWDO)', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 6;
+        pdf.text('SOLO PARENT ANALYTICS REPORT', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 8;
+      }
+
+      // Report details
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Report Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 6;
+      pdf.text(`Barangay: ${selectedBrgy}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 6;
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+
+      // Add horizontal line below header
+      pdf.setDrawColor(0, 0, 0); // Black line
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
+
+      // Helper function to create tables
+      const createTable = (headers, data, startY) => {
+        const tableWidth = pageWidth - (2 * margin);
+        const colWidth = tableWidth / headers.length;
+        const rowHeight = 8;
+        let currentY = startY;
+        
+        // Draw header
+        pdf.setFillColor(217, 234, 211); // Light green background
+        pdf.rect(margin, currentY, tableWidth, rowHeight, 'F');
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(0, 0, 0);
+        
+        headers.forEach((header, index) => {
+          const x = margin + (index * colWidth);
+          pdf.text(header, x + 2, currentY + 5);
+        });
+        currentY += rowHeight;
+        
+        // Draw data rows
+        pdf.setFont(undefined, 'normal');
+        data.forEach((row, rowIndex) => {
+          // Alternate row colors
+          if (rowIndex % 2 === 0) {
+            pdf.setFillColor(255, 255, 255); // White
+          } else {
+            pdf.setFillColor(242, 242, 242); // Light gray
+          }
+          pdf.rect(margin, currentY, tableWidth, rowHeight, 'F');
+          
+          row.forEach((cell, cellIndex) => {
+            const x = margin + (cellIndex * colWidth);
+            pdf.text(cell, x + 2, currentY + 5);
+          });
+          currentY += rowHeight;
+        });
+        
+        return currentY;
+      };
+
+      // Helper function to add section with table
+      const addSectionWithTable = (title, headers, data) => {
+        if (yPosition > pageHeight - 60) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(title, margin, yPosition);
+        yPosition += 8;
+        
+        yPosition = createTable(headers, data, yPosition);
+        yPosition += 10;
+      };
+
+      // Generate content based on filter selection
+      if (exportFilter === 'monthlyPopulation') {
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthlyData = monthNames.map((month, index) => [
+          month,
+          monthlyPopulation.datasets[0].data[index].toString(),
+          monthlyPopulation.datasets[0].data.slice(0, index + 1).reduce((sum, count) => sum + count, 0).toString()
+        ]);
+        addSectionWithTable('Monthly Population Analysis', 
+          ['Month', 'Population Count', 'Cumulative Total'],
+          monthlyData
+        );
+      } else if (exportFilter === 'applicationStatus') {
+        const totalApplications = (applicationStatusData.accepted || 0) + (applicationStatusData.pending || 0) + (applicationStatusData.declined || 0);
+        const applicationTableData = [
+          ['Accepted', (applicationStatusData.accepted || 0).toString(), `${((applicationStatusData.accepted || 0) / totalApplications * 100).toFixed(1)}%`],
+          ['Pending', (applicationStatusData.pending || 0).toString(), `${((applicationStatusData.pending || 0) / totalApplications * 100).toFixed(1)}%`],
+          ['Declined', (applicationStatusData.declined || 0).toString(), `${((applicationStatusData.declined || 0) / totalApplications * 100).toFixed(1)}%`]
+        ];
+        addSectionWithTable('Application Status Analysis', 
+          ['Status', 'Count', 'Percentage'],
+          applicationTableData
+        );
+      } else if (exportFilter === 'beneficiaryStatus') {
+        const total = beneficiariesData.beneficiaries + beneficiariesData.nonBeneficiaries;
+        const beneficiaryTableData = [
+          ['Beneficiaries', beneficiariesData.beneficiaries.toString(), `${(beneficiariesData.beneficiaries / total * 100).toFixed(1)}%`],
+          ['Non-Beneficiaries', beneficiariesData.nonBeneficiaries.toString(), `${(beneficiariesData.nonBeneficiaries / total * 100).toFixed(1)}%`]
+        ];
+        addSectionWithTable('Beneficiary Status Analysis', 
+          ['Category', 'Count', 'Percentage'],
+          beneficiaryTableData
+        );
+      } else if (exportFilter === 'childrenAge') {
+        const total = Object.values(childrenAgeData.ageGroups).reduce((sum, count) => sum + count, 0);
+        const childrenAgeTableData = Object.entries(childrenAgeData.ageGroups).map(([label, value]) => [
+          label,
+          value.toString(),
+          `${(value / total * 100).toFixed(1)}%`
+        ]);
+        addSectionWithTable('Children Age Distribution', 
+          ['Age Group', 'Count', 'Percentage'],
+          childrenAgeTableData
+        );
+      } else if (exportFilter === 'childrenCount') {
+        const total = childrenCountData.childrenCountDistribution.reduce((sum, item) => sum + item.frequency, 0);
+        const childrenCountTableData = childrenCountData.childrenCountDistribution.map(item => [
+          item.count,
+          item.frequency.toString(),
+          total ? `${(item.frequency / total * 100).toFixed(1)}%` : '0%'
+        ]);
+        addSectionWithTable('Number of Children', 
+          ['Children Count', 'Families', 'Percentage'],
+          childrenCountTableData
+        );
+      } else if (exportFilter === 'ageOfSoloParents') {
+        const total = ageData.ageDistribution.reduce((sum, item) => sum + item.count, 0);
+        const ageTableData = ageData.ageDistribution.map(item => [
+          item.age,
+          item.count.toString(),
+          total ? `${(item.count / total * 100).toFixed(1)}%` : '0%'
+        ]);
+        addSectionWithTable('Age of Solo Parents', 
+          ['Age', 'Count', 'Percentage'],
+          ageTableData
+        );
+      } else {
+        // Default: Executive Summary (when 'all' is selected)
+        const totalPopulation = monthlyPopulation.datasets[0].data.reduce((sum, val) => sum + val, 0);
+        const totalApplications = (applicationStatusData.accepted || 0) + (applicationStatusData.pending || 0) + (applicationStatusData.declined || 0);
+        const totalBeneficiaries = beneficiariesData.beneficiaries + beneficiariesData.nonBeneficiaries;
+        
+        addSectionWithTable('Executive Summary', 
+          ['Metric', 'Value', 'Percentage', 'Notes'],
+          [
+            ['Total Population', totalPopulation.toString(), '100%', 'All registered solo parents'],
+            ['Total Applications', totalApplications.toString(), '100%', 'All applications processed'],
+            ['Total Beneficiaries', totalBeneficiaries.toString(), '100%', 'All beneficiaries']
+          ]
+        );
+
+        // Monthly Population
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthlyData = monthNames.map((month, index) => {
+          const count = monthlyPopulation.datasets[0].data[index];
+          const cumulative = monthlyPopulation.datasets[0].data.slice(0, index + 1).reduce((sum, val) => sum + val, 0);
+          
+          // Calculate growth percentage with proper error handling
+          let growth = '0.0%';
+          if (index > 0) {
+            const previousCount = monthlyPopulation.datasets[0].data[index - 1];
+            if (previousCount > 0) {
+              const growthValue = ((count - previousCount) / previousCount * 100);
+              growth = `${growthValue.toFixed(1)}%`;
+            } else if (count > 0) {
+              growth = 'New'; // When previous was 0 but current has data
+            } else {
+              growth = '0.0%'; // Both previous and current are 0
+            }
+          }
+          
+          return [
+            month,
+            count.toString(),
+            cumulative.toString(),
+            growth
+          ];
+        });
+        
+        // Add total row
+        const monthlyTotalPopulation = monthlyPopulation.datasets[0].data.reduce((sum, val) => sum + val, 0);
+        monthlyData.push(['TOTAL', monthlyTotalPopulation.toString(), '', '']);
+        
+        addSectionWithTable('Monthly Population Analysis', 
+          ['Month', 'Population Count', 'Cumulative Total', 'Monthly Growth %'],
+          monthlyData
+        );
+
+        // Application Status
+        const applicationTableData = [
+          ['Accepted', (applicationStatusData.accepted || 0).toString(), `${((applicationStatusData.accepted || 0) / totalApplications * 100).toFixed(1)}%`],
+          ['Pending', (applicationStatusData.pending || 0).toString(), `${((applicationStatusData.pending || 0) / totalApplications * 100).toFixed(1)}%`],
+          ['Declined', (applicationStatusData.declined || 0).toString(), `${((applicationStatusData.declined || 0) / totalApplications * 100).toFixed(1)}%`]
+        ];
+        addSectionWithTable('Application Status Analysis', 
+          ['Status', 'Count', 'Percentage'],
+          applicationTableData
+        );
+
+        // Beneficiary Status
+        const beneficiaryTableData = [
+          ['Beneficiaries', beneficiariesData.beneficiaries.toString(), `${(beneficiariesData.beneficiaries / totalBeneficiaries * 100).toFixed(1)}%`],
+          ['Non-Beneficiaries', beneficiariesData.nonBeneficiaries.toString(), `${(beneficiariesData.nonBeneficiaries / totalBeneficiaries * 100).toFixed(1)}%`]
+        ];
+        addSectionWithTable('Beneficiary Status Analysis', 
+          ['Category', 'Count', 'Percentage'],
+          beneficiaryTableData
+        );
+      }
+
+      // Footer
+      if (yPosition > pageHeight - 30) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('This is a system-generated report.', pageWidth / 2, yPosition, { align: 'center' });
+
+      // Save the PDF
+      const fileName = `MSWDO_Solo_Parent_Report_${selectedBrgy}_${startDate}_to_${endDate}.pdf`;
+      pdf.save(fileName);
+
+      // Show success message
+      setSuccessMessage('PDF Generated Successfully');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
+
+      // Update PDF count in localStorage
+      const newPdfCount = pdfCount + 1;
+      localStorage.setItem('superadmin_pdf_count', newPdfCount.toString());
+      setPdfCount(newPdfCount);
+      
+      if (newPdfCount >= 5) {
+        setCanExportPdf(false);
+        setReportLimitMessage('You have reached the maximum of 5 PDF exports per day.');
+      }
+
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 0.5, sm: 3 } }}>
       <div className="superadmin-dashboard">
         <div className="superadmin-dashboard-header">
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', gap: 2, mb: 2 }}>
+            {/* Dashboard Title */}
             <Typography
               variant="h4"
               sx={{
@@ -1735,27 +2093,6 @@ const SDashboard = () => {
               }}
             >
               Dashboard
-            </Typography>
-            <Typography
-              variant="h6"
-              color="text.secondary"
-              sx={{
-                fontWeight: 300,
-                backgroundColor: '#f5f5f5',
-                px: 2,
-                py: 1,
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                justifyContent: { xs: 'center', sm: 'flex-end' },
-                width: { xs: '100%', sm: 'auto' },
-                mt: { xs: 1, sm: 0 }
-              }}
-            >
-              <i className="fas fa-clock" style={{ color: '#16C47F' }}></i>
-              {getPHTimeString(currentTime)}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
@@ -1820,10 +2157,30 @@ const SDashboard = () => {
                 startIcon={<i className="fas fa-file-excel"></i>}
                 onClick={handleExport}
                 sx={{ height: 40, minWidth: 160, fontWeight: 'bold', fontSize: 16 }}
-                disabled={reportCount >= 5}
+                disabled={!canExportExcel}
               >
                 Export Report
               </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<i className="fas fa-file-pdf"></i>}
+                onClick={handleExportPdf}
+                sx={{ height: 40, minWidth: 160, fontWeight: 'bold', fontSize: 16 }}
+                disabled={!canExportPdf}
+              >
+                Export PDF
+              </Button>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: (canExportExcel && canExportPdf) ? '#16C47F' : '#E74C3C',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem'
+                }}
+              >
+                Excel: {reportCount}/5 | PDF: {pdfCount}/5
+              </Typography>
               {reportLimitMessage && <Alert severity="warning">{reportLimitMessage}</Alert>}
             </Box>
             {dateError && <Alert severity="error">{dateError}</Alert>}

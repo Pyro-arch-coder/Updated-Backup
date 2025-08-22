@@ -4831,4 +4831,189 @@ app.post('/newchildrequest/superadmin-decline', async (req, res) => {
   }
 });
 
+// --- EXPORT LIMITS ENDPOINTS ---
+
+// GET export limit for admin
+app.get('/api/export-limit/:adminId', async (req, res) => {
+  const { adminId } = req.params;
+  try {
+    // Check if admin exists in export_limits table
+    const [exportLimit] = await queryDatabase('SELECT * FROM export_limits WHERE admin_id = ?', [adminId]);
+    
+    if (!exportLimit) {
+      // If no record exists, create one with default values
+      await queryDatabase(
+        'INSERT INTO export_limits (admin_id, export_count, excel_count, pdf_count, last_export_date) VALUES (?, 0, 0, 0, NULL)',
+        [adminId]
+      );
+      return res.json({ 
+        success: true, 
+        exportCount: 0,
+        excelCount: 0,
+        pdfCount: 0,
+        lastExportDate: null,
+        canExport: true,
+        canExportExcel: true,
+        canExportPdf: true
+      });
+    }
+    
+    // Check if it's a new day (reset export count)
+    const today = new Date().toDateString();
+    const lastExportDate = exportLimit.last_export_date ? new Date(exportLimit.last_export_date).toDateString() : null;
+    
+    if (lastExportDate !== today) {
+      // Reset export count for new day
+      await queryDatabase(
+        'UPDATE export_limits SET export_count = 0, excel_count = 0, pdf_count = 0, last_export_date = NULL WHERE admin_id = ?',
+        [adminId]
+      );
+      return res.json({ 
+        success: true, 
+        exportCount: 0,
+        excelCount: 0,
+        pdfCount: 0,
+        lastExportDate: null,
+        canExport: true,
+        canExportExcel: true,
+        canExportPdf: true
+      });
+    }
+    
+    const canExportExcel = (exportLimit.excel_count ?? 0) < 5; // Max 5 Excel exports per day
+    const canExportPdf = (exportLimit.pdf_count ?? 0) < 5; // Max 5 PDF exports per day
+    const canExport = canExportExcel || canExportPdf; // Can export if either type is available
+    
+    res.json({ 
+      success: true, 
+      exportCount: exportLimit.export_count, 
+      excelCount: exportLimit.excel_count ?? 0,
+      pdfCount: exportLimit.pdf_count ?? 0,
+      lastExportDate: exportLimit.last_export_date,
+      canExport,
+      canExportExcel,
+      canExportPdf
+    });
+  } catch (err) {
+    console.error('Error fetching export limit:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// POST increment export count for admin (supports type: excel | pdf)
+app.post('/api/export-limit/increment/:adminId', async (req, res) => {
+  const { adminId } = req.params;
+  const { type } = req.body; // 'excel' | 'pdf'
+  try {
+    // Check if admin exists in export_limits table
+    const [exportLimit] = await queryDatabase('SELECT * FROM export_limits WHERE admin_id = ?', [adminId]);
+    
+    if (!exportLimit) {
+      // Create new record with export count = 1 and type count = 1
+      await queryDatabase(
+        'INSERT INTO export_limits (admin_id, export_count, excel_count, pdf_count, last_export_date) VALUES (?, 1, ?, ?, NOW())',
+        [adminId, type === 'excel' ? 1 : 0, type === 'pdf' ? 1 : 0]
+      );
+    } else {
+      // Check if it's a new day
+      const today = new Date().toDateString();
+      const lastExportDate = exportLimit.last_export_date ? new Date(exportLimit.last_export_date).toDateString() : null;
+      
+      if (lastExportDate !== today) {
+        // Reset for new day and increment
+        const excelInc = type === 'excel' ? 1 : 0;
+        const pdfInc = type === 'pdf' ? 1 : 0;
+        await queryDatabase(
+          'UPDATE export_limits SET export_count = 1, excel_count = ?, pdf_count = ?, last_export_date = NOW() WHERE admin_id = ?',
+          [excelInc, pdfInc, adminId]
+        );
+      } else {
+        // Increment existing counts
+        if (type === 'excel') {
+          await queryDatabase(
+            'UPDATE export_limits SET export_count = export_count + 1, excel_count = excel_count + 1, last_export_date = NOW() WHERE admin_id = ?',
+            [adminId]
+          );
+        } else if (type === 'pdf') {
+          await queryDatabase(
+            'UPDATE export_limits SET export_count = export_count + 1, pdf_count = pdf_count + 1, last_export_date = NOW() WHERE admin_id = ?',
+            [adminId]
+          );
+        } else {
+          // Fallback: increment only total
+          await queryDatabase(
+            'UPDATE export_limits SET export_count = export_count + 1, last_export_date = NOW() WHERE admin_id = ?',
+            [adminId]
+          );
+        }
+      }
+    }
+    
+    // Get updated export limit
+    const [updatedLimit] = await queryDatabase('SELECT * FROM export_limits WHERE admin_id = ?', [adminId]);
+    
+    res.json({ 
+      success: true, 
+      exportCount: updatedLimit.export_count,
+      excelCount: updatedLimit.excel_count ?? 0,
+      pdfCount: updatedLimit.pdf_count ?? 0,
+      lastExportDate: updatedLimit.last_export_date,
+      canExport: (updatedLimit.excel_count ?? 0) < 5 || (updatedLimit.pdf_count ?? 0) < 5,
+      canExportExcel: (updatedLimit.excel_count ?? 0) < 5,
+      canExportPdf: (updatedLimit.pdf_count ?? 0) < 5
+    });
+  } catch (err) {
+    console.error('Error incrementing export count:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// GET all export limits (for super admin monitoring)
+app.get('/api/export-limits/all', async (req, res) => {
+  try {
+    const exportLimits = await queryDatabase(`
+      SELECT 
+        el.*,
+        a.barangay,
+        a.first_name,
+        a.last_name
+      FROM export_limits el
+      LEFT JOIN admins a ON el.admin_id = a.id
+      ORDER BY el.updated_at DESC
+    `);
+    
+    res.json({ success: true, exportLimits });
+  } catch (err) {
+    console.error('Error fetching all export limits:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// POST reset export limit for specific admin (for super admin)
+app.post('/api/export-limits/reset/:adminId', async (req, res) => {
+  const { adminId } = req.params;
+  try {
+    await queryDatabase(
+      'UPDATE export_limits SET export_count = 0, excel_count = 0, pdf_count = 0, last_export_date = NULL WHERE admin_id = ?',
+      [adminId]
+    );
+    
+    res.json({ success: true, message: 'Export limit reset successfully' });
+  } catch (err) {
+    console.error('Error resetting export limit:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// POST reset all export limits (for super admin)
+app.post('/api/export-limits/reset-all', async (req, res) => {
+  try {
+    await queryDatabase('UPDATE export_limits SET export_count = 0, excel_count = 0, pdf_count = 0, last_export_date = NULL');
+    
+    res.json({ success: true, message: 'All export limits reset successfully' });
+  } catch (err) {
+    console.error('Error resetting all export limits:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
 

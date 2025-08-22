@@ -43,6 +43,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import MswdoLogo from '../assets/MSWDO LOGO.png';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import { useState, useEffect } from 'react';
 
 // Define API base URL from environment variables with fallback
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -170,6 +171,7 @@ export default function SuperAdminLayout({ children }) {
   const [passwordSuccess, setPasswordSuccess] = React.useState('');
   const [isChangingPassword, setIsChangingPassword] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(new Date());
 
   // Function to fetch notifications
   const fetchNotifications = async () => {
@@ -404,6 +406,15 @@ export default function SuperAdminLayout({ children }) {
     }
   };
 
+  // Live clock effect
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   React.useEffect(() => {
     // Ensure body doesn't scroll horizontally, especially when modals/drawers are open
     document.body.style.overflowX = 'hidden';
@@ -444,22 +455,70 @@ export default function SuperAdminLayout({ children }) {
           >
             <MenuIcon sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }} />
           </IconButton>
+          {/* Dashboard Title */}
           <Typography 
             variant="h6" 
             noWrap 
             component="div" 
             sx={{
-              flexGrow: 1,
-              overflow: 'hidden',       // Hide overflowing content
-              textOverflow: 'ellipsis',  // Show ellipsis for truncated text
-              fontSize: { xs: '0.875rem', sm: '1.25rem' }, // Responsive font size
-              lineHeight: 1.2, // Tighter line height
-              color: '#000000', // Changed color
-              fontWeight: 600 // Added font weight
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              fontSize: { xs: '0.875rem', sm: '1.25rem' },
+              lineHeight: 1.2,
+              color: '#000000',
+              fontWeight: 600,
+              minWidth: 0,
+              flexShrink: 1
             }}
           >
             SANTA MARIA OFFICERS DASHBOARD
           </Typography>
+          
+          {/* Live Clock and Date - Centered */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            flexGrow: 1,
+            gap: 0.5
+          }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#16C47F',
+                fontWeight: 600,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              <i className="fas fa-clock" style={{ fontSize: '0.875rem' }}></i>
+              {currentTime.toLocaleString('en-PH', { 
+                timeZone: 'Asia/Manila',
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#666',
+                fontWeight: 500,
+                fontSize: { xs: '0.65rem', sm: '0.75rem' }
+              }}
+            >
+              {currentTime.toLocaleDateString('en-PH', { 
+                timeZone: 'Asia/Manila',
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </Typography>
+          </Box>
           <Box sx={{
             display: 'flex',
             alignItems: 'center',

@@ -3,6 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as XLSX from 'xlsx';
 import { Box, Typography, TextField, Button, Alert, Paper, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import jsPDF from 'jspdf';
 
 // Define API base URL with environment variable and fallback
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -54,12 +55,14 @@ const Dashboard = () => {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [reportCount, setReportCount] = useState(() => {
-    const count = parseInt(localStorage.getItem('admin_report_count') || '0', 10);
-    return isNaN(count) ? 0 : count;
-  });
+  const [reportCount, setReportCount] = useState(0);
   const [reportLimitMessage, setReportLimitMessage] = useState('');
   const [exportFilter, setExportFilter] = useState('all');
+  const [canExport, setCanExport] = useState(true);
+  const [canExportExcel, setCanExportExcel] = useState(true);
+  const [canExportPdf, setCanExportPdf] = useState(true);
+  const [excelCount, setExcelCount] = useState(0);
+  const [pdfCount, setPdfCount] = useState(0);
 
   // Add useEffect to fetch admin info if not in localStorage
   useEffect(() => {
@@ -93,6 +96,46 @@ const Dashboard = () => {
 
     fetchAdminInfo();
   }, []);
+
+  // Add useEffect to fetch export limit from backend
+  useEffect(() => {
+    const fetchExportLimit = async () => {
+      try {
+        const adminId = localStorage.getItem('id');
+        if (!adminId) {
+          console.error('No admin ID found in localStorage');
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/api/export-limit/${adminId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch export limit');
+        }
+        const data = await response.json();
+        console.log('Fetched export limit:', data);
+        
+        if (data.success) {
+          setReportCount(data.exportCount);
+          setExcelCount(data.excelCount ?? 0);
+          setPdfCount(data.pdfCount ?? 0);
+          setCanExport(data.canExport);
+          setCanExportExcel(data.canExportExcel ?? true);
+          setCanExportPdf(data.canExportPdf ?? true);
+          if (!data.canExport || !data.canExportPdf) {
+            setReportLimitMessage('You have reached the maximum of 5 report generations for today.');
+          } else {
+            setReportLimitMessage('');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching export limit:', error);
+      }
+    };
+
+    if (adminInfo.id) {
+      fetchExportLimit();
+    }
+  }, [adminInfo.id]);
 
   // Update the dashboard title to handle undefined barangay
   const dashboardTitle = adminInfo.barangay ? `${adminInfo.barangay} Dashboard` : 'Loading Dashboard...';
@@ -705,8 +748,8 @@ const Dashboard = () => {
 
   // Update the generateExcelReport function
   const generateExcelReport = async () => {
-    if (reportCount >= 5) {
-      setReportLimitMessage('You have reached the maximum of 5 report generations.');
+    if (!canExport) {
+      setReportLimitMessage('You have reached the maximum of 5 report generations for today.');
       return;
     }
     if (!startDate || !endDate) {
@@ -986,11 +1029,32 @@ const Dashboard = () => {
       setSuccessMessage('Generated Success');
       setShowSuccessModal(true);
       setTimeout(() => setShowSuccessModal(false), 2000);
-      // Increment report count
-      const newCount = reportCount + 1;
-      setReportCount(newCount);
-      localStorage.setItem('admin_report_count', newCount);
-      setReportLimitMessage('');
+      
+      // Increment export count in backend
+      try {
+        const adminId = localStorage.getItem('id');
+        const incrementResponse = await fetch(`${API_URL}/api/export-limit/increment/${adminId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (incrementResponse.ok) {
+          const incrementData = await incrementResponse.json();
+          if (incrementData.success) {
+            setReportCount(incrementData.exportCount);
+            setCanExport(incrementData.canExport);
+            if (!incrementData.canExport) {
+              setReportLimitMessage('You have reached the maximum of 5 report generations for today.');
+            } else {
+              setReportLimitMessage('');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error incrementing export count:', error);
+      }
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Failed to generate report. Please try again.');
@@ -1049,7 +1113,408 @@ const Dashboard = () => {
     });
   };
 
+  const handleExportPdf = async () => {
+    // Check PDF export limit
+    if (!canExportPdf) {
+      setReportLimitMessage('You have reached the maximum of 5 PDF exports for today.');
+      return;
+    }
+    // Date validation
+    if (!startDate || !endDate) {
+      setDateError('Please select both start and end dates for the report');
+      return;
+    }
+    if (!validateDates(startDate, endDate)) {
+      return;
+    }
+
+    try {
+      // Prepare summary similar to the Excel "Executive Summary"
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const totalPopulation = dashboardData.population.reduce((sum, val) => sum + val, 0);
+      const totalRemarks = dashboardData.monthlyRemarks.reduce((sum, val) => sum + val, 0);
+      const genderTotal = dashboardData.genderDistribution.reduce((sum, g) => sum + g.value, 0);
+      const employmentTotal = dashboardData.employmentStatus.reduce((sum, e) => sum + e.value, 0);
+      const childrenTotal = Object.values(childrenCountData.childrenCounts).reduce((sum, val) => sum + val, 0);
+      const soloParentAgeTotal = Object.values(soloParentAgeData.ageGroups).reduce((sum, val) => sum + val, 0);
+
+      const title = 'SOLO PARENT ANALYTICS REPORT';
+      const periodText = `Report Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
+      const barangayText = `Barangay: ${adminInfo.barangay || ''}`;
+      const generatedText = `Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
+
+      // Build printable HTML
+      const html = `
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${title}</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; }
+  .header { text-align: center; }
+  .h1 { color: #16C47F; margin: 4px 0; font-size: 22px; font-weight: 700; }
+  .sub { color: #0f172a; margin: 2px 0; font-size: 14px; }
+  hr { border: none; border-top: 2px solid #e5e7eb; margin: 16px 0; }
+  h2 { margin: 16px 0 8px; font-size: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; }
+  th { background: #D9EAD3; text-align: left; }
+  .muted { color: #64748b; }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="h1">SANTA MARIA MUNICIPALITY</div>
+    <div class="h1">Municipal Social Welfare and Development Office (MSWDO)</div>
+    <div class="h1">${title}</div>
+    <div class="sub">${periodText}</div>
+    <div class="sub">${barangayText}</div>
+    <div class="sub">${generatedText}</div>
+  </div>
+  <hr />
+  <h2>Executive Summary</h2>
+  <table>
+    <thead>
+      <tr><th>Metric</th><th>Value</th><th>Percentage</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Total Population</td><td>${totalPopulation}</td><td>100%</td><td>All registered solo parents</td></tr>
+      <tr><td>Total Remarks</td><td>${totalRemarks}</td><td>${totalPopulation ? ((totalRemarks/totalPopulation)*100).toFixed(1) : '0'}%</td><td>All remarks for solo parents</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Gender Distribution</h2>
+  <table>
+    <thead><tr><th>Gender</th><th>Count</th><th>Percentage</th></tr></thead>
+    <tbody>
+      ${dashboardData.genderDistribution.map(g => `<tr><td>${g.name}</td><td>${g.value}</td><td>${genderTotal ? ((g.value/genderTotal)*100).toFixed(1) : '0'}%</td></tr>`).join('')}
+    </tbody>
+  </table>
+
+  <h2>Employment Status</h2>
+  <table>
+    <thead><tr><th>Status</th><th>Count</th><th>Percentage</th></tr></thead>
+    <tbody>
+      ${dashboardData.employmentStatus.map(e => `<tr><td>${e.name}</td><td>${e.value}</td><td>${employmentTotal ? ((e.value/employmentTotal)*100).toFixed(1) : '0'}%</td></tr>`).join('')}
+    </tbody>
+  </table>
+
+  <h2>Number of Children</h2>
+  <table>
+    <thead><tr><th>Children Count</th><th>Families</th><th>Percentage</th></tr></thead>
+    <tbody>
+      ${Object.entries(childrenCountData.childrenCounts).map(([label, value]) => `<tr><td>${label}</td><td>${value}</td><td>${childrenTotal ? ((value/childrenTotal)*100).toFixed(1) : '0'}%</td></tr>`).join('')}
+    </tbody>
+  </table>
+
+  <h2>Solo Parent Age Distribution</h2>
+  <table>
+    <thead><tr><th>Age Group</th><th>Count</th><th>Percentage</th></tr></thead>
+    <tbody>
+      ${Object.entries(soloParentAgeData.ageGroups).map(([label, value]) => `<tr><td>${label}</td><td>${value}</td><td>${soloParentAgeTotal ? ((value/soloParentAgeTotal)*100).toFixed(1) : '0'}%</td></tr>`).join('')}
+    </tbody>
+  </table>
+
+  <div class="center muted">This is a system-generated report.</div>
+  <script>
+    window.onload = function(){
+      setTimeout(function(){ window.print(); }, 300);
+      setTimeout(function(){ window.close(); }, 1500);
+    };
+  </script>
+</body>
+</html>`;
+
+      // Generate PDF using jsPDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPosition = margin;
+
+      // Add logo to header
+      try {
+        const logoImg = new Image();
+        logoImg.src = '/logo.jpg';
+        await new Promise((resolve, reject) => {
+          logoImg.onload = resolve;
+          logoImg.onerror = reject;
+        });
+        
+        // Add logo on the left side (much smaller size)
+        pdf.addImage(logoImg, 'JPEG', margin, yPosition, 15, 15);
+        
+        // Header text positioned to avoid logo overlap (moved to right)
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(0, 0, 0); // Black
+        pdf.text('SANTA MARIA MUNICIPALITY', margin + 25, yPosition + 5);
+        pdf.text('Municipal Social Welfare and Development Office (MSWDO)', margin + 25, yPosition + 11);
+        pdf.text('SOLO PARENT ANALYTICS REPORT', margin + 25, yPosition + 17);
+        yPosition += 25;
+      } catch (error) {
+        console.log('Logo not found, using text-only header');
+        // Fallback to text-only header
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(0, 0, 0); // Black
+        pdf.text('SANTA MARIA MUNICIPALITY', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 6;
+        pdf.text('Municipal Social Welfare and Development Office (MSWDO)', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 6;
+        pdf.text('SOLO PARENT ANALYTICS REPORT', pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 8;
+      }
+
+      // Report details
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Report Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 6;
+      pdf.text(`Barangay: ${adminInfo.barangay || ''}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 6;
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+
+      // Add horizontal line below header
+      pdf.setDrawColor(0, 0, 0); // Black line
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
+
+      // Helper function to create tables
+      const createTable = (headers, data, startY) => {
+        const tableWidth = pageWidth - (2 * margin);
+        const colWidth = tableWidth / headers.length;
+        const rowHeight = 8;
+        let currentY = startY;
+        
+        // Draw header
+        pdf.setFillColor(217, 234, 211); // Light green background
+        pdf.rect(margin, currentY, tableWidth, rowHeight, 'F');
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(0, 0, 0);
+        
+        headers.forEach((header, index) => {
+          const x = margin + (index * colWidth);
+          pdf.text(header, x + 2, currentY + 5);
+        });
+        currentY += rowHeight;
+        
+        // Draw data rows
+        pdf.setFont(undefined, 'normal');
+        data.forEach((row, rowIndex) => {
+          // Alternate row colors
+          if (rowIndex % 2 === 0) {
+            pdf.setFillColor(255, 255, 255); // White
+          } else {
+            pdf.setFillColor(242, 242, 242); // Light gray
+          }
+          pdf.rect(margin, currentY, tableWidth, rowHeight, 'F');
+          
+          row.forEach((cell, cellIndex) => {
+            const x = margin + (cellIndex * colWidth);
+            pdf.text(cell, x + 2, currentY + 5);
+          });
+          currentY += rowHeight;
+        });
+        
+        return currentY;
+      };
+
+      // Helper function to add section with table
+      const addSectionWithTable = (title, headers, data) => {
+        if (yPosition > pageHeight - 60) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(title, margin, yPosition);
+        yPosition += 8;
+        
+        yPosition = createTable(headers, data, yPosition);
+        yPosition += 10;
+      };
+
+      // Generate content based on filter selection
+      if (exportFilter === 'monthlyPopulation') {
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthlyData = monthNames.map((month, index) => [
+          month,
+          dashboardData.population[index].toString(),
+          dashboardData.population.slice(0, index + 1).reduce((sum, count) => sum + count, 0).toString()
+        ]);
+        addSectionWithTable('Monthly Population Analysis', 
+          ['Month', 'Population Count', 'Cumulative Total'],
+          monthlyData
+        );
+      } else if (exportFilter === 'genderDistribution') {
+        const genderTableData = dashboardData.genderDistribution.map(g => [
+          g.name,
+          g.value.toString(),
+          `${genderTotal ? ((g.value/genderTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Gender Distribution', 
+          ['Gender', 'Count', 'Percentage'],
+          genderTableData
+        );
+      } else if (exportFilter === 'employmentStatus') {
+        const employmentTableData = dashboardData.employmentStatus.map(e => [
+          e.name,
+          e.value.toString(),
+          `${employmentTotal ? ((e.value/employmentTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Employment Status', 
+          ['Status', 'Count', 'Percentage'],
+          employmentTableData
+        );
+      } else if (exportFilter === 'monthlyRemarks') {
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthlyData = monthNames.map((month, index) => [
+          month,
+          dashboardData.monthlyRemarks[index].toString()
+        ]);
+        addSectionWithTable('Monthly Remarks Analysis', 
+          ['Month', 'Remarks Count'],
+          monthlyData
+        );
+      } else if (exportFilter === 'childrenCount') {
+        const childrenTableData = Object.entries(childrenCountData.childrenCounts).map(([label, value]) => [
+          label,
+          value.toString(),
+          `${childrenTotal ? ((value/childrenTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Number of Children', 
+          ['Children Count', 'Families', 'Percentage'],
+          childrenTableData
+        );
+      } else if (exportFilter === 'soloParentAge') {
+        const ageTableData = Object.entries(soloParentAgeData.ageGroups).map(([label, value]) => [
+          label,
+          value.toString(),
+          `${soloParentAgeTotal ? ((value/soloParentAgeTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Solo Parent Age Distribution', 
+          ['Age Group', 'Count', 'Percentage'],
+          ageTableData
+        );
+      } else {
+        // Default: Executive Summary (when 'all' is selected)
+        addSectionWithTable('Executive Summary', 
+          ['Metric', 'Value', 'Percentage', 'Notes'],
+          [
+            ['Total Population', totalPopulation.toString(), '100%', 'All registered solo parents'],
+            ['Total Remarks', totalRemarks.toString(), `${totalPopulation ? ((totalRemarks/totalPopulation)*100).toFixed(1) : '0'}%`, 'All remarks for solo parents']
+          ]
+        );
+
+        // Gender Distribution
+        const genderTableData = dashboardData.genderDistribution.map(g => [
+          g.name,
+          g.value.toString(),
+          `${genderTotal ? ((g.value/genderTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Gender Distribution', 
+          ['Gender', 'Count', 'Percentage'],
+          genderTableData
+        );
+
+        // Employment Status
+        const employmentTableData = dashboardData.employmentStatus.map(e => [
+          e.name,
+          e.value.toString(),
+          `${employmentTotal ? ((e.value/employmentTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Employment Status', 
+          ['Status', 'Count', 'Percentage'],
+          employmentTableData
+        );
+
+        // Number of Children
+        const childrenTableData = Object.entries(childrenCountData.childrenCounts).map(([label, value]) => [
+          label,
+          value.toString(),
+          `${childrenTotal ? ((value/childrenTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Number of Children', 
+          ['Children Count', 'Families', 'Percentage'],
+          childrenTableData
+        );
+
+        // Solo Parent Age Distribution
+        const ageTableData = Object.entries(soloParentAgeData.ageGroups).map(([label, value]) => [
+          label,
+          value.toString(),
+          `${soloParentAgeTotal ? ((value/soloParentAgeTotal)*100).toFixed(1) : '0'}%`
+        ]);
+        addSectionWithTable('Solo Parent Age Distribution', 
+          ['Age Group', 'Count', 'Percentage'],
+          ageTableData
+        );
+      }
+
+      // Footer
+      if (yPosition > pageHeight - 30) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('This is a system-generated report.', pageWidth / 2, yPosition, { align: 'center' });
+
+      // Save the PDF
+      const fileName = `MSWDO_Solo_Parent_Report_${adminInfo.barangay}_${startDate}_to_${endDate}.pdf`;
+      pdf.save(fileName);
+
+      // Increment export count in backend for PDF
+      try {
+        const adminId = localStorage.getItem('id');
+        const incrementResponse = await fetch(`${API_URL}/api/export-limit/increment/${adminId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'pdf' })
+        });
+        if (incrementResponse.ok) {
+          const incrementData = await incrementResponse.json();
+          if (incrementData.success) {
+            setReportCount(incrementData.exportCount);
+            setExcelCount(incrementData.excelCount ?? 0);
+            setPdfCount(incrementData.pdfCount ?? 0);
+            setCanExport(incrementData.canExport);
+            setCanExportExcel(incrementData.canExportExcel ?? true);
+            setCanExportPdf(incrementData.canExportPdf ?? true);
+            if (!incrementData.canExport || !incrementData.canExportPdf) {
+              setReportLimitMessage('You have reached the maximum of 5 report generations for today.');
+            } else {
+              setReportLimitMessage('');
+            }
+          }
+        }
+      } catch (incErr) {
+        console.error('Error incrementing PDF export count:', incErr);
+      }
+
+      setSuccessMessage('Generated Success');
+      setShowSuccessModal(true);
+      setTimeout(() => setShowSuccessModal(false), 2000);
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
   const handleExport = async () => {
+    // Check Excel export limit
+    if (!canExportExcel) {
+      setReportLimitMessage('You have reached the maximum of 5 Excel exports for today.');
+      return;
+    }
+    
     // Date validation for all exports
     if (!startDate || !endDate) {
       setDateError('Please select both start and end dates for the report');
@@ -1146,19 +1611,15 @@ const Dashboard = () => {
       const data = [
         ...createMainReportTitles(),
         { A: '' },
-        ...createSheetHeaderDetails('MONTHLY POPULATION ANALYSIS', 'Population Trends by Month'),
+        ...createSheetHeaderDetails('MONTHLY POPULATION ANALYSIS', 'Population Count by Month'),
         { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
-        { A: 'MONTH', B: 'POPULATION COUNT', C: 'CUMULATIVE TOTAL' },
-        ...monthNames.map((month, index) => {
-          const cumulative = dashboardData.population.slice(0, index + 1).reduce((sum, count) => sum + count, 0);
-          return {
-            A: month,
-            B: dashboardData.population[index],
-            C: cumulative
-          };
-        }),
-        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
-        { A: 'TOTAL', B: dashboardData.population.reduce((sum, count) => sum + count, 0), C: '' }
+        { A: 'MONTH', B: 'POPULATION COUNT' },
+        ...monthNames.map((month, index) => ({
+          A: month,
+          B: dashboardData.population[index]
+        })),
+        { A: '', B: '' },
+        { A: 'TOTAL', B: dashboardData.population.reduce((sum, count) => sum + count, 0) }
       ];
       ws = XLSX.utils.json_to_sheet(data);
       addReportHeaderStyling(ws);
@@ -1263,11 +1724,101 @@ const Dashboard = () => {
       addAlternatingRowColors(ws, 13, 13 + Object.keys(soloParentAgeData.ageGroups).length - 1, 3);
       XLSX.utils.book_append_sheet(wb, ws, "Solo Parent Age Distribution");
       fileName = `MSWDO_Solo_Parent_Age_Distribution_Report_${adminInfo.barangay}_${startDate}_to_${endDate}.xlsx`;
+    } else {
+      // Default case: when exportFilter is 'all' or any other value, create a summary sheet
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const totalPopulation = dashboardData.population.reduce((sum, val) => sum + val, 0);
+      const totalRemarks = dashboardData.monthlyRemarks.reduce((sum, val) => sum + val, 0);
+      const genderTotal = dashboardData.genderDistribution.reduce((sum, g) => sum + g.value, 0);
+      const employmentTotal = dashboardData.employmentStatus.reduce((sum, e) => sum + e.value, 0);
+      const childrenTotal = Object.values(childrenCountData.childrenCounts).reduce((sum, val) => sum + val, 0);
+      const soloParentAgeTotal = Object.values(soloParentAgeData.ageGroups).reduce((sum, val) => sum + val, 0);
+
+      const data = [
+        ...createMainReportTitles(),
+        { A: '' },
+        ...createSheetHeaderDetails('DASHBOARD SUMMARY', 'Overview of All Charts'),
+        { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '' },
+        { A: 'METRIC', B: 'VALUE', C: 'PERCENTAGE', D: 'NOTES' },
+        { A: 'Total Population', B: totalPopulation, C: '100%', D: 'All registered solo parents' },
+        { A: 'Total Remarks', B: totalRemarks, C: totalPopulation ? `${(totalRemarks / totalPopulation * 100).toFixed(1)}%` : '0%', D: 'All remarks for solo parents' },
+        { A: '', B: '', C: '', D: '' },
+        { A: 'GENDER DISTRIBUTION', B: '', C: '', D: '' },
+        ...dashboardData.genderDistribution.map(g => ({
+          A: g.name,
+          B: g.value,
+          C: genderTotal ? `${(g.value / genderTotal * 100).toFixed(1)}%` : '0%',
+          D: ''
+        })),
+        { A: '', B: '', C: '', D: '' },
+        { A: 'EMPLOYMENT STATUS', B: '', C: '', D: '' },
+        ...dashboardData.employmentStatus.map(e => ({
+          A: e.name,
+          B: e.value,
+          C: employmentTotal ? `${(e.value / employmentTotal * 100).toFixed(1)}%` : '0%',
+          D: ''
+        })),
+        { A: '', B: '', C: '', D: '' },
+        { A: 'NUMBER OF CHILDREN', B: '', C: '', D: '' },
+        ...Object.entries(childrenCountData.childrenCounts).map(([label, value]) => ({
+          A: label,
+          B: value,
+          C: childrenTotal ? `${(value / childrenTotal * 100).toFixed(1)}%` : '0%',
+          D: ''
+        })),
+        { A: '', B: '', C: '', D: '' },
+        { A: 'SOLO PARENT AGE DISTRIBUTION', B: '', C: '', D: '' },
+        ...Object.entries(soloParentAgeData.ageGroups).map(([label, value]) => ({
+          A: label,
+          B: value,
+          C: soloParentAgeTotal ? `${(value / soloParentAgeTotal * 100).toFixed(1)}%` : '0%',
+          D: ''
+        }))
+      ];
+      ws = XLSX.utils.json_to_sheet(data);
+      addReportHeaderStyling(ws);
+      addDataTableHeaderStyling(ws, 12, 4);
+      addAlternatingRowColors(ws, 13, 13 + dashboardData.genderDistribution.length + dashboardData.employmentStatus.length + Object.keys(childrenCountData.childrenCounts).length + Object.keys(soloParentAgeData.ageGroups).length + 8, 4);
+      XLSX.utils.book_append_sheet(wb, ws, "Dashboard Summary");
+      fileName = `MSWDO_Dashboard_Summary_Report_${adminInfo.barangay}_${startDate}_to_${endDate}.xlsx`;
     }
+    
+    // Check if workbook has sheets before writing
+    if (wb.SheetNames.length === 0) {
+      alert('No data available for export. Please try a different filter or check your data.');
+      return;
+    }
+    
     XLSX.writeFile(wb, fileName);
     setSuccessMessage('Generated Success');
     setShowSuccessModal(true);
     setTimeout(() => setShowSuccessModal(false), 2000);
+    
+    // Increment export count in backend
+    try {
+      const adminId = localStorage.getItem('id');
+      const incrementResponse = await fetch(`${API_URL}/api/export-limit/increment/${adminId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (incrementResponse.ok) {
+        const incrementData = await incrementResponse.json();
+        if (incrementData.success) {
+          setReportCount(incrementData.exportCount);
+          setCanExport(incrementData.canExport);
+          if (!incrementData.canExport) {
+            setReportLimitMessage('You have reached the maximum of 5 report generations for today.');
+          } else {
+            setReportLimitMessage('');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error incrementing export count:', error);
+    }
   };
 
   return (
@@ -1287,27 +1838,7 @@ const Dashboard = () => {
             >
               {dashboardTitle}
             </Typography>
-            <Typography
-              variant="h6"
-              color="text.secondary"
-              sx={{
-                fontWeight: 300,
-                backgroundColor: '#f5f5f5',
-                px: 2,
-                py: 1,
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                justifyContent: { xs: 'center', sm: 'flex-end' },
-                width: { xs: '100%', sm: 'auto' },
-                mt: { xs: 1, sm: 0 }
-              }}
-            >
-              <i className="fas fa-clock" style={{ color: '#16C47F' }}></i>
-              {getPHTimeString(currentTime)}
-            </Typography>
+
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
@@ -1357,10 +1888,31 @@ const Dashboard = () => {
                 startIcon={<i className="fas fa-download"></i>}
                 onClick={handleExport}
                 sx={{ height: 40, minWidth: 160, fontWeight: 'bold', fontSize: 16 }}
-                disabled={reportCount >= 5}
+                disabled={!canExportExcel}
               >
                 Export Data
               </Button>
+             
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<i className="fas fa-file-pdf"></i>}
+                onClick={handleExportPdf}
+                sx={{ height: 40, minWidth: 160, fontWeight: 'bold', fontSize: 16 }}
+                disabled={!canExportPdf}
+              >
+                Export PDF
+              </Button>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: canExport ? '#16C47F' : '#E74C3C',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem'
+                }}
+              >
+                Excel: {excelCount}/5 | PDF: {pdfCount}/5
+              </Typography>
             </Box>
             {dateError && <Alert severity="error">{dateError}</Alert>}
             {reportLimitMessage && <Alert severity="warning">{reportLimitMessage}</Alert>}
