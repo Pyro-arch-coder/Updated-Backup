@@ -2,22 +2,28 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Login.module.css";
 import FaceAuth from "./FaceAuth";
-import { toast } from 'react-toastify';
 
 // Define API base URL with environment variable and fallback
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
 
-// Example for safe localStorage usage
+// Safe localStorage utilities
 const safeSetItem = (key, value) => {
   if (typeof window !== 'undefined' && window.localStorage) {
     localStorage.setItem(key, value);
   }
 };
+
 const safeGetItem = (key) => {
   if (typeof window !== 'undefined' && window.localStorage) {
     return localStorage.getItem(key);
   }
   return null;
+};
+
+const safeRemoveItem = (key) => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.removeItem(key);
+  }
 };
 
 const Login = () => {
@@ -36,28 +42,20 @@ const Login = () => {
   useEffect(() => {
     const savedCredentials = safeGetItem('savedCredentials');
     if (savedCredentials) {
-      let parsed = null;
       try {
-        parsed = JSON.parse(savedCredentials);
+        const parsed = JSON.parse(savedCredentials);
+        if (parsed?.email && parsed?.password) {
+          setFormData({ email: parsed.email, password: parsed.password });
+          setRememberMe(true);
+          return;
+        }
       } catch (err) {
-        safeSetItem('savedCredentials', null);
+        safeRemoveItem('savedCredentials');
       }
-      if (
-        parsed &&
-        typeof parsed === 'object' &&
-        parsed.email != null &&
-        parsed.password != null
-      ) {
-        setFormData({ email: parsed.email, password: parsed.password });
-        setRememberMe(true);
-      } else {
-        setFormData({ email: '', password: '' });
-        setRememberMe(false);
-      }
-    } else {
-      setFormData({ email: '', password: '' });
-      setRememberMe(false);
     }
+    // Default state
+    setFormData({ email: '', password: '' });
+    setRememberMe(false);
   }, []);
 
   const handleInputChange = (e) => {
@@ -104,7 +102,7 @@ const Login = () => {
         if (rememberMe) {
           safeSetItem('savedCredentials', JSON.stringify(formData));
         } else {
-          safeSetItem('savedCredentials', null);
+          safeRemoveItem('savedCredentials');
         }
 
         handleLoginSuccess(user.role);
@@ -115,15 +113,15 @@ const Login = () => {
             <p><strong>Your application is currently being reviewed by our administrators.</strong></p>
           </div>
         );
-        safeSetItem('savedCredentials', null);
+        safeRemoveItem('savedCredentials');
       } else {
         setError(data.error || "Login failed. Please try again.");
-        safeSetItem('savedCredentials', null);
+        safeRemoveItem('savedCredentials');
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("Failed to connect to the server. Please try again later.");
-      safeSetItem('savedCredentials', null);
+      safeRemoveItem('savedCredentials');
     } finally {
       setLoading(false);
     }
@@ -136,17 +134,23 @@ const Login = () => {
         setShowFaceAuth(false);
         return;
       }
-      // Store for ProtectedRoute
-      localStorage.setItem("loggedInUser", JSON.stringify(user));
-      localStorage.setItem("UserId", user.id);
-      // For backward compatibility with older code
-      if (user.role) {
-        localStorage.setItem("id", user.id);
-        localStorage.setItem("barangay", user.barangay || "");
+      
+      // Ensure user object has a valid role, fallback to 'user' if missing
+      if (!user.role) {
+        user.role = "user";
       }
-      // Determine user role - in case the face auth endpoint doesn't return role
-      const role = user.role || "user";
-      navigateToDashboard(role);
+      
+      // Store user data
+      safeSetItem("loggedInUser", JSON.stringify(user));
+      safeSetItem("UserId", user.id);
+      
+      // Store admin ID and barangay if the user is an admin
+      if (user.role === "admin") {
+        safeSetItem("id", user.id);
+        safeSetItem("barangay", user.barangay || "");
+      }
+      
+      navigateToDashboard(user.role);
     } catch (err) {
       console.error("Error during face auth login:", err);
       setFaceAuthError("Error completing face authentication login. Please try again.");
@@ -167,10 +171,6 @@ const Login = () => {
     }
   };
 
-  const handleForgotPassword = () => {
-    navigate("/forgot-password");
-  };
-
   const openFaceAuth = () => {
     setShowFaceAuth(true);
   };
@@ -185,7 +185,7 @@ const Login = () => {
     const fromProfile = safeGetItem('fromProfile');
     
     if (fromProfile) {
-      safeSetItem('fromProfile', null);
+      safeRemoveItem('fromProfile');
       navigate('/profile');
     } else {
       navigateToDashboard(role);

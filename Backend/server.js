@@ -2782,6 +2782,25 @@ app.get('/getUserDocuments', async (req, res) => {
   }
 });
 
+// Root route handler
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Barangay Management System API Server',
+    status: 'Running',
+    version: '1.0.0',
+    endpoints: {
+      authentication: '/login',
+      users: '/api/users',
+      documents: '/api/documents',
+      events: '/api/events',
+      forum: '/api/forum',
+      faceAuth: '/api/authenticate-face',
+      idCard: '/api/idcard'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   res.status(500).json({

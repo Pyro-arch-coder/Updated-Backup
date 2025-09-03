@@ -2,12 +2,13 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    background-image: url('../assets/hero-bg.jpg'); /* Updated path */
+    min-height: 100vh;
+    background-image: url('../assets/hero-bg.jpg');
     background-size: cover;
     background-position: center;
+    background-attachment: fixed;
     position: relative;
-    padding: 20px;
+    padding: 1rem;
 }
   
 /* Green overlay with animation */
@@ -18,7 +19,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 128, 64, 0.6); /* Green hue overlay */
+    background-color: rgba(0, 128, 64, 0.6);
     z-index: 1;
     animation: pulseOverlay 8s infinite alternate;
 }
@@ -30,14 +31,14 @@
   
 .loginBox {
     background: white;
-    padding: 3rem;
+    padding: 2rem;
     border-radius: 12px;
     box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
-    width: 500px;
-    max-width: 100%;
+    width: 100%;
+    max-width: 450px;
     text-align: center;
     position: relative;
-    z-index: 2; /* Position above the overlay */
+    z-index: 2;
     overflow: hidden;
     animation: fadeIn 0.8s ease-out, slideUp 0.8s ease-out;
 }
@@ -77,17 +78,19 @@
   
 .inputGroup label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 0.5rem;
     color: #555;
     font-weight: 600;
+    font-size: 0.9rem;
 }
   
 .inputGroup input {
-    width: 92%;
-    padding: 14px;
+    width: 100%;
+    padding: 0.875rem;
     border: 1px solid #ccc;
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 1rem;
+    box-sizing: border-box;
     transition: border 0.3s, box-shadow 0.3s, transform 0.2s;
 }
   
@@ -118,61 +121,31 @@
   
 .loginBtn {
     width: 100%;
-    padding: 12px;
+    padding: 0.75rem;
     background: linear-gradient(135deg, #16C47F, #0E9B64);
     color: white;
     border: none;
     border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
+    font-size: 1rem;
     font-weight: 600;
+    cursor: pointer;
     transition: transform 0.2s, box-shadow 0.3s;
     animation: fadeIn 1s ease-out 0.8s both;
-    position: relative;
-    overflow: hidden;
 }
   
-.loginBtn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0px 4px 12px rgba(14, 155, 100, 0.5);
+.loginBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0px 4px 12px rgba(14, 155, 100, 0.4);
 }
 
 .loginBtn:active {
     transform: translateY(0);
 }
 
-/* Button ripple effect */
-.loginBtn::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 5px;
-    height: 5px;
-    background: rgba(255, 255, 255, 0.5);
-    opacity: 0;
-    border-radius: 100%;
-    transform: scale(1, 1) translate(-50%);
-    transform-origin: 50% 50%;
-}
-
-.loginBtn:focus:not(:active)::after {
-    animation: ripple 1s ease-out;
-}
-
-@keyframes ripple {
-    0% {
-        transform: scale(0, 0);
-        opacity: 0.5;
-    }
-    20% {
-        transform: scale(25, 25);
-        opacity: 0.3;
-    }
-    100% {
-        opacity: 0;
-        transform: scale(40, 40);
-    }
+.loginBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
 }
   
 .forgotPassword {
@@ -214,56 +187,7 @@
     color: #0E9B64;
 }
   
-.loadingContainer {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background-image: url('../assets/hero-bg.jpg'); /* Updated path */
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    color: white;
-}
-  
-/* Green overlay for loading screen with pulse animation */
-.loadingContainer::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 128, 64, 0.6); /* Green hue overlay */
-    z-index: -1;
-    animation: pulseOverlay 3s infinite alternate;
-}
-  
-.loadingSpinner {
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top: 4px solid white;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 16px;
-}
-  
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Add loading text animation */
-.loadingContainer p {
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-}
+/* Removed unused loading container styles */
   
 .rememberMe {
     margin: 1rem 0;
@@ -271,13 +195,11 @@
     align-items: center;
     gap: 0.5rem;
     text-align: left;
-    width: 92%;
-    margin-left: 4%;
     animation: fadeIn 1s ease-out calc(0.4s + var(--input-delay, 0s)) both;
 }
 
 .rememberMe label {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #555;
     cursor: pointer;
     font-weight: 600;
@@ -292,15 +214,13 @@
 }
 
 .rememberMe input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
+    width: 1rem;
+    height: 1rem;
     accent-color: #16C47F;
     border: 1px solid #ccc;
     border-radius: 4px;
     transition: all 0.3s;
-    margin-top: 0;
-    position: relative;
-    top: 1px;
+    margin: 0;
 }
 
 .passwordContainer {
@@ -350,29 +270,65 @@
     color: #16C47F;
 }
 
+/* Mobile First Responsive Design */
 @media (max-width: 480px) {
+    .loginContainer {
+        padding: 0.5rem;
+        background-attachment: scroll;
+    }
+    
     .loginBox {
-        padding: 2rem;
-        width: 100%;
-        max-width: 90%;
+        padding: 1.5rem;
+        max-width: 95%;
+        margin: 0.5rem;
     }
   
     .loginBox h2 {
-        font-size: 1.7rem;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
     }
   
+    .inputGroup {
+        margin-bottom: 1rem;
+    }
+    
     .inputGroup input {
-        padding: 12px;
-        font-size: 14px;
+        padding: 0.75rem;
+        font-size: 1rem;
     }
   
-    .loginBtn {
-        padding: 12px;
-        font-size: 14px;
+    .loginBtn, .faceAuthBtn {
+        padding: 0.75rem;
+        font-size: 1rem;
     }
   
     .signupText {
-        font-size: 13px;
+        font-size: 0.875rem;
+    }
+    
+    .forgotPasswordBtn {
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .loginBox {
+        padding: 1rem;
+    }
+    
+    .loginBox h2 {
+        font-size: 1.25rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .loginContainer {
+        padding: 2rem;
+    }
+    
+    .loginBox {
+        padding: 2.5rem;
+        max-width: 500px;
     }
 }
 
@@ -398,20 +354,27 @@
 
 .faceAuthBtn {
   width: 100%;
-  padding: 12px;
-  background-color: #4CAF50;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
   color: white;
   border: none;
-  border-radius: 5px;
-  font-size: 16px;
+  border-radius: 8px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s;
-  margin-top: 10px;
+  transition: transform 0.2s, box-shadow 0.3s;
+  margin-top: 0.625rem;
 }
 
-.faceAuthBtn:hover {
-  background-color: #0E8B54;
+.faceAuthBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0px 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.faceAuthBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .backButton {
@@ -431,311 +394,10 @@
   color: #2d3748;
 }
 
-/* Face Authentication Styles */
-.face-auth-container {
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 20px;
-}
+/* Removed unused face authentication styles - moved to FaceAuth component */
 
-.face-auth-container h2 {
-  text-align: center;
-  color: #2d3748;
-  margin-bottom: 20px;
-}
+/* Removed unused modal styles */
 
-.video-container {
-  position: relative;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto 20px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+/* Removed unused ForgotPassword component styles - should be in separate file */
 
-.video-container video {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.video-container canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.controls {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 20px;
-}
-
-.controls button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 120px;
-}
-
-.start-btn {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.start-btn:hover:not(:disabled) {
-  background-color: #45a049;
-}
-
-.authenticate-btn {
-  background-color: #2196F3;
-  color: white;
-}
-
-.authenticate-btn:hover:not(:disabled) {
-  background-color: #1976D2;
-}
-
-.stop-btn {
-  background-color: #f44336;
-  color: white;
-}
-
-.stop-btn:hover:not(:disabled) {
-  background-color: #d32f2f;
-}
-
-.controls button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.message {
-  text-align: center;
-  margin-top: 20px;
-  padding: 10px;
-  border-radius: 5px;
-  background-color: #f8f9fa;
-  color: #2d3748;
-}
-
-/* Loading state styles */
-.loading-message {
-  background-color: #e3f2fd;
-  color: #1565c0;
-  padding: 12px 20px;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  width: 100%;
-  text-align: center;
-  border-left: 4px solid #1565c0;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
-}
-
-/* Modal Styles */
-.modalOverlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    animation: fadeIn 0.3s ease-out;
-    will-change: opacity;
-}
-
-.modal {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
-    width: 400px;
-    max-width: 95%;
-    position: relative;
-    z-index: 1001;
-    animation: fadeIn 0.3s ease-out, slideUp 0.3s ease-out;
-    will-change: transform, opacity;
-    transform: translateZ(0);
-}
-
-.modal h3 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: #333;
-    font-size: 1.5rem;
-    font-weight: 700;
-}
-
-.modal p {
-    margin-bottom: 1.5rem;
-    color: #555;
-}
-
-.modalButtons {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 1.5rem;
-}
-
-.cancelBtn, .proceedBtn {
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: transform 0.2s, box-shadow 0.3s;
-    min-width: 120px;
-    will-change: transform, box-shadow;
-}
-
-.cancelBtn {
-    background-color: #f1f1f1;
-    color: #333;
-    border: 1px solid #ddd;
-}
-
-.cancelBtn:hover:not(:disabled) {
-    background-color: #e5e5e5;
-}
-
-.proceedBtn {
-    background: linear-gradient(135deg, #16C47F, #0E9B64);
-    color: white;
-    border: none;
-}
-
-.proceedBtn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0px 4px 12px rgba(14, 155, 100, 0.3);
-}
-
-.cancelBtn:disabled, .proceedBtn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-}
-
-/* Additional styles for ForgotPassword component */
-.successMessage {
-  color: #4CAF50;
-  background-color: #e8f5e9;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.instructionText {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.buttonGroup {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.primaryBtn {
-  background-color: #3f51b5;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-weight: 500;
-  width: 50%;
-}
-
-.primaryBtn:hover {
-  background-color: #303f9f;
-}
-
-.primaryBtn:disabled {
-  background-color: #c5cae9;
-  cursor: not-allowed;
-}
-
-.secondaryBtn {
-  background-color: #e0e0e0;
-  color: #424242;
-  border: none;
-  border-radius: 4px;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-weight: 500;
-  width: 50%;
-}
-
-.secondaryBtn:hover {
-  background-color: #bdbdbd;
-}
-
-.secondaryBtn:disabled {
-  background-color: #f5f5f5;
-  color: #9e9e9e;
-  cursor: not-allowed;
-}
-
-.resetSuccess {
-  text-align: center;
-}
-
-.resetSuccess p {
-  margin-bottom: 20px;
-  color: #424242;
-  line-height: 1.5;
-}
-
-.passwordHelper {
-  color: #666;
-  font-size: 0.8rem;
-  margin-top: 4px;
-  display: block;
-}
-
-.pendingMessage {
-  color: #f39c12;
-  font-size: 14px;
-  margin: 0 0 20px;
-  text-align: left;
-  background-color: rgba(243, 156, 18, 0.1);
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 4px solid #f39c12;
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-.pendingMessage p {
-  margin: 8px 0;
-  line-height: 1.4;
-}
-
-.pendingMessage strong {
-  font-weight: 700;
-  font-size: 16px;
-  display: block;
-  margin-bottom: 8px;
-}
+/* Removed unused pendingMessage style - not used in Login component */

@@ -45,7 +45,7 @@ export default function Classification({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="classification-form step-form">
       <h2 className="classification-header step-header">
-        Step 3: Classification/Circumstances of Being a Solo Parent
+        Step 3: Catergory/Circumstances of Being a Solo Parent
         <span className="subtitle">(Dahilan bakit Naging Solo Parent)</span>
       </h2>
 
@@ -57,7 +57,7 @@ export default function Classification({
           {...register("classification", { required: "This field is required" })}
           className={`classification-input step-input ${errors.classification ? 'error' : ''}`}
         >
-          <option value="">Select your classification</option>
+          <option value="">Select your Catergory</option>
           {classifications.map((classification) => (
             <option key={classification.code} value={classification.code}>
               {classification.code} - {classification.label}
