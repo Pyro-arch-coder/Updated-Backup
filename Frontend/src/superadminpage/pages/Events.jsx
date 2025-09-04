@@ -661,9 +661,12 @@ const Events = () => {
             // Get the QR code data directly
             const qrData = result.trim();
             
+            // Format the QR data for the backend (expects 'user:123' format)
+            const formattedQrData = qrData.startsWith('user:') ? qrData : `user:${qrData}`;
+            
             // Get user details by searching with qr_code_data
             try {
-              const response = await axios.get(`${API_BASE_URL}/api/users/search/qr?qr_code_data=${qrData}`);
+              const response = await axios.get(`${API_BASE_URL}/api/users/search/qr?qr_code_data=${formattedQrData}`);
               if (response.data.success) {
                 // Set the search input to the user's name
                 setSearchTerm(response.data.user.name);

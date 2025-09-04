@@ -118,6 +118,11 @@ const SoloParentManagement = () => {
   const fetchVerifiedUsers = async () => {
     try {
       const response = await axios.get(`${API_URL}/verifiedUsersSA`);
+      console.log('Fetched users data:', response.data);
+      if (response.data && response.data.length > 0) {
+        console.log('First user sample:', response.data[0]);
+        console.log('First user userId:', response.data[0].userId);
+      }
       setVerifiedUsers(response.data || []);
     } catch (error) {
       console.error('Error fetching verified users:', error);
@@ -565,13 +570,18 @@ const SoloParentManagement = () => {
         document.body.appendChild(qrContainer);
         
         // Render QR code using ReactDOM createRoot API
+        console.log('Generating QR for user:', user);
+        console.log('User ID for QR:', user.userId);
+        const qrValue = user.userId ? user.userId.toString() : 'NO_ID';
+        console.log('QR Code value:', qrValue);
+        
         const root = ReactDOM.createRoot(qrContainer);
         root.render(
           <QRCodeSVG 
-            value={`user:${user.userId}`}
+            value={qrValue}
             size={120}
-            level="H"
-            includeMargin={false}
+            level="M"
+            includeMargin={true}
             fgColor="#2E7D32"
             bgColor="#ffffff"
           />
@@ -845,26 +855,41 @@ const SoloParentManagement = () => {
             <title>Print Solo Parent IDs</title>
             <style>
               @page {
-                size: 3.375in 2.125in;
-                margin: 0;
+                size: A4;
+                margin: 0.5in;
               }
               body {
                 margin: 0;
                 padding: 0;
                 font-family: Arial, sans-serif;
               }
+              .page {
+                width: 100%;
+                min-height: 100vh;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: repeat(3, 1fr);
+                gap: 15px;
+                padding: 20px;
+                box-sizing: border-box;
+                page-break-after: always;
+                align-items: center;
+                justify-items: center;
+              }
               .id-card-wrapper {
                 width: 3.375in;
                 height: 2.125in;
-                margin: 0;
-                padding: 0;
-                page-break-after: always;
                 position: relative;
                 overflow: hidden;
+                border: 1px dashed #ccc;
+                display: flex;
+                align-items: center;
+                justify-content: center;
               }
-              img {
+              .id-card-wrapper img {
                 width: 100%;
-                height: auto;
+                height: 100%;
+                object-fit: contain;
                 display: block;
               }
             </style>
@@ -872,10 +897,15 @@ const SoloParentManagement = () => {
           <body>
       `);
       
-      // Process each selected user
+      const idsPerPage = 6;
+      const totalPages = Math.ceil(selectedUsers.length / idsPerPage);
+      const frontImages = [];
+      const backImages = [];
+      
+      // Process each selected user to generate images
       for (const [index, user] of selectedUsers.entries()) {
         // Update progress message
-        setSuccessMessage(`Preparing ID ${index + 1} of ${selectedUsers.length} for printing`);
+        setSuccessMessage(`Generating ID ${index + 1} of ${selectedUsers.length}`);
         
         // Create a QR code element
         const qrContainer = document.createElement('div');
@@ -890,13 +920,13 @@ const SoloParentManagement = () => {
         const root = ReactDOM.createRoot(qrContainer);
         root.render(
           <QRCodeSVG 
-            value={`user:${user.userId}`}
-            size={120}
-            level="H"
-            includeMargin={false}
-            fgColor="#2E7D32"
-            bgColor="#ffffff"
-          />
+              value={user.userId ? user.userId.toString() : 'NO_ID'}
+              size={120}
+              level="M"
+              includeMargin={true}
+              fgColor="#2E7D32"
+              bgColor="#ffffff"
+            />
         );
         
         // Wait a moment for the QR code to render
@@ -1126,35 +1156,108 @@ const SoloParentManagement = () => {
           // Continue with printing even if upload fails
         }
         
-        // Add to print window - front of ID
+        // Store images for later arrangement
         try {
           const frontDataUrl = frontCanvas.toDataURL('image/png', 1.0);
-          printWindow.document.write(`
-            <div class="id-card-wrapper">
-              <img src="${frontDataUrl}" alt="ID Card Front" />
-            </div>
-          `);
-        } catch (err) {
-          console.error('Error converting front canvas to data URL:', err);
-          // Continue with other IDs even if this one fails
-        }
-        
-        // Add to print window - back of ID (on a new page)
-        try {
           const backDataUrl = backCanvas.toDataURL('image/png', 1.0);
-          printWindow.document.write(`
-            <div class="id-card-wrapper">
-              <img src="${backDataUrl}" alt="ID Card Back" />
-            </div>
-          `);
+          
+          frontImages.push({
+            dataUrl: frontDataUrl,
+            userName: `${user.first_name || 'Unknown'} ${user.last_name || 'User'}`
+          });
+          
+          backImages.push({
+            dataUrl: backDataUrl,
+            userName: `${user.first_name || 'Unknown'} ${user.last_name || 'User'}`
+          });
         } catch (err) {
-          console.error('Error converting back canvas to data URL:', err);
+          console.error('Error converting canvas to data URL:', err);
           // Continue with other IDs even if this one fails
         }
         
         // Clean up
         document.body.removeChild(tempContainer);
         document.body.removeChild(backContainer);
+      }
+      
+      // Arrange images into pages of 5 IDs each
+      setSuccessMessage('Arranging IDs for printing...');
+      
+      if (bulkPrintBackToBack) {
+        // Back-to-back printing: alternate front and back pages
+        for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+          const startIndex = pageIndex * idsPerPage;
+          const endIndex = Math.min(startIndex + idsPerPage, frontImages.length);
+          
+          // Front page
+          const frontPageImages = frontImages.slice(startIndex, endIndex);
+          printWindow.document.write('<div class="page">');
+          printWindow.document.write('<div style="text-align: center; margin-bottom: 10px; font-size: 12px; color: #666;">Front Side - Page ' + (pageIndex + 1) + '</div>');
+          
+          frontPageImages.forEach((image, index) => {
+            printWindow.document.write(`
+              <div class="id-card-wrapper">
+                <img src="${image.dataUrl}" alt="ID Card Front - ${image.userName}" />
+              </div>
+            `);
+          });
+          printWindow.document.write('</div>');
+          
+          // Back page (corresponding backs for the same IDs)
+          const backPageImages = backImages.slice(startIndex, endIndex);
+          printWindow.document.write('<div class="page">');
+          printWindow.document.write('<div style="text-align: center; margin-bottom: 10px; font-size: 12px; color: #666;">Back Side - Page ' + (pageIndex + 1) + ' (Print on reverse of previous page)</div>');
+          
+          backPageImages.forEach((image, index) => {
+            printWindow.document.write(`
+              <div class="id-card-wrapper">
+                <img src="${image.dataUrl}" alt="ID Card Back - ${image.userName}" />
+              </div>
+            `);
+          });
+          printWindow.document.write('</div>');
+        }
+      } else {
+        // Separate printing: all fronts first, then all backs
+        // Create front pages (5 IDs per page)
+        for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+          const startIndex = pageIndex * idsPerPage;
+          const endIndex = Math.min(startIndex + idsPerPage, frontImages.length);
+          const pageImages = frontImages.slice(startIndex, endIndex);
+          
+          printWindow.document.write('<div class="page">');
+          printWindow.document.write('<div style="text-align: center; margin-bottom: 10px; font-size: 12px; color: #666;">Front Side - Page ' + (pageIndex + 1) + '</div>');
+          
+          pageImages.forEach((image, index) => {
+            printWindow.document.write(`
+              <div class="id-card-wrapper">
+                <img src="${image.dataUrl}" alt="ID Card Front - ${image.userName}" />
+              </div>
+            `);
+          });
+          
+          printWindow.document.write('</div>');
+        }
+        
+        // Create back pages (5 IDs per page)
+        for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+          const startIndex = pageIndex * idsPerPage;
+          const endIndex = Math.min(startIndex + idsPerPage, backImages.length);
+          const pageImages = backImages.slice(startIndex, endIndex);
+          
+          printWindow.document.write('<div class="page">');
+          printWindow.document.write('<div style="text-align: center; margin-bottom: 10px; font-size: 12px; color: #666;">Back Side - Page ' + (pageIndex + 1) + '</div>');
+          
+          pageImages.forEach((image, index) => {
+            printWindow.document.write(`
+              <div class="id-card-wrapper">
+                <img src="${image.dataUrl}" alt="ID Card Back - ${image.userName}" />
+              </div>
+            `);
+          });
+          
+          printWindow.document.write('</div>');
+        }
       }
       
       // Close document and print
@@ -1555,9 +1658,9 @@ const SoloParentManagement = () => {
                 sx={{ backgroundColor: '#16C47F', color: '#fff', fontWeight: 600, textTransform: 'none', fontSize: { xs: '0.75rem', sm: '0.9rem' }, px: 1.5, py: 0.5 }}
                 onClick={printBulkIDs}
               >
-                Print Selected IDs ({selectedUsers.length})
+                Print Bulk IDs ({selectedUsers.length}) - 6 per page
               </Button>
-              <Box sx={{ ml: 1 }}>
+              <Box sx={{ ml: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <label style={{ fontSize: '0.8em', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <input 
                     type="checkbox" 
@@ -1565,8 +1668,11 @@ const SoloParentManagement = () => {
                     onChange={e => setBulkPrintBackToBack(e.target.checked)}
                     style={{ marginRight: 4 }}
                   />
-                  Print back-to-back
+                  Print back-to-back (duplex)
                 </label>
+                <Typography variant="caption" sx={{ fontSize: '0.7em', color: '#666', ml: 2 }}>
+                  {bulkPrintBackToBack ? 'Front & back pages alternate for duplex printing' : 'All fronts first, then all backs'}
+                </Typography>
               </Box>
             </Box>
           )}
@@ -2294,13 +2400,13 @@ const SoloParentManagement = () => {
                       </div>
                       <div className="id-card-qr-container">
                         <QRCodeSVG 
-                          value={`user:${selectedIDUser?.userId}`}
-                          size={120}
-                          level="H"
-                          includeMargin={false}
-                          fgColor="#2E7D32"
-                          bgColor="#ffffff"
-                        />
+                            value={selectedIDUser?.userId ? selectedIDUser.userId.toString() : 'NO_ID'}
+                            size={120}
+                            level="M"
+                            includeMargin={true}
+                            fgColor="#2E7D32"
+                            bgColor="#ffffff"
+                          />
                       </div>
                     </div>
                   </div>
