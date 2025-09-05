@@ -116,7 +116,7 @@ export default function MultiStepForm() {
 
       // Upload to Cloudinary
       const cloudinaryResponse = await fetch(
-        `https://api.cloudinary.com/v1_1/dskj7oxr7/image/upload`,
+        `https://api.cloudinary.com/v1_1/dpijzjma8/image/upload`,
         {
           method: 'POST',
           body: formData

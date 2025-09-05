@@ -97,7 +97,7 @@ const Events = () => {
   const [filterDate, setFilterDate] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const CLOUD_NAME = 'dskj7oxr7';
+  const CLOUD_NAME = 'dpijzjma8';
   const UPLOAD_PRESET = 'soloparent';
   const [eventImage, setEventImage] = useState(null);
   const [eventImagePreview, setEventImagePreview] = useState('');
