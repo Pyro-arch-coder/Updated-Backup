@@ -98,7 +98,7 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       formData.append('folder', `soloparent/users/${code_id}/documents/${documentType}`);
 
       const response = await axios.post(
-        'https://api.cloudinary.com/v1_1/dskj7oxr7/upload',
+        'https://api.cloudinary.com/v1_1/dpijzjma8/upload',
         formData,
         {
           onUploadProgress: (progressEvent) => {
@@ -137,7 +137,7 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       // This is a placeholder for the actual API call to your backend
       // Replace with your actual API endpoint
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/documents/${documentType}`,
+        `${process.env.REACT_APP_API_URL || 'http://localhost:8081'}/api/documents/${documentType}`,
         {
           code_id: code_id,
           file_name: url,
