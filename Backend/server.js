@@ -856,7 +856,7 @@ app.get('/pendingUsers', async (req, res) => {
                  '${table}' as document_type,
                  CASE 
                    WHEN file_name LIKE 'http%' THEN file_name 
-                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                   ELSE CONCAT('${process.env.BACKEND_URL || 'http://localhost:8081'}/uploads/', file_name) 
                  END as file_url
           FROM ${table}
           WHERE code_id IN (?)
@@ -966,7 +966,7 @@ app.get('/pendingUsersAdmin', async (req, res) => {
                  '${table}' as document_type,
                  CASE 
                    WHEN file_name LIKE 'http%' THEN file_name 
-                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                   ELSE CONCAT('http://:8081/uploads/', file_name) 
                  END as file_url
           FROM ${table}
           WHERE code_id IN (?)
@@ -1091,7 +1091,7 @@ app.get('/declineInfo', async (req, res) => {
                '${table}' as document_type,
                CASE 
                  WHEN file_name LIKE 'http%' THEN file_name 
-                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                 ELSE CONCAT('${process.env.BACKEND_URL || 'http://localhost:8081'}/uploads/', file_name) 
                END as file_url
         FROM ${table}
         WHERE code_id IN (?) AND category = 'application'
@@ -1217,7 +1217,7 @@ app.get('/verifiedUsersSA', async (req, res) => {
                  '${table}' as document_type,
                  CASE 
                    WHEN file_name LIKE 'http%' THEN file_name 
-                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                   ELSE CONCAT('${process.env.BACKEND_URL || 'http://localhost:8081'}/uploads/', file_name) 
                  END as file_url
           FROM ${table}
           WHERE code_id IN (?)
@@ -1441,7 +1441,7 @@ app.post('/getUserDetails', async (req, res) => {
                  '${table}' as document_type,
                  CASE 
                    WHEN file_name LIKE 'http%' THEN file_name 
-                   ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                   ELSE CONCAT('http://:8081/uploads/', file_name) 
                  END as file_url
           FROM ${table}
           WHERE code_id = ?
@@ -2191,7 +2191,7 @@ app.get('/allRenewalUsers', async (req, res) => {
                'barangay_cert_documents' as document_type,
                CASE 
                  WHEN file_name LIKE 'http%' THEN file_name 
-                 ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+                 ELSE CONCAT('${process.env.BACKEND_URL || 'http://localhost:8081'}/uploads/', file_name) 
                END as file_url
         FROM barangay_cert_documents
         WHERE code_id = ?
@@ -2768,7 +2768,7 @@ app.get('/getUserDocuments', async (req, res) => {
              'barangay_cert_documents' as document_type,
              CASE 
                WHEN file_name LIKE 'http%' THEN file_name 
-               ELSE CONCAT('http://localhost:8081/uploads/', file_name) 
+               ELSE CONCAT('${process.env.BACKEND_URL || 'http://:8081'}/uploads/', file_name) 
              END as file_url
       FROM barangay_cert_documents
       WHERE code_id = ?
@@ -2814,12 +2814,12 @@ const PORT = process.env.PORT || 8081;
 try {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-    console.log(`Face authentication endpoint: http://localhost:${PORT}/api/authenticate-face`);
+    console.log(`Face authentication endpoint: ${process.env.BACKEND_URL || `http://localhost:${PORT}`}/api/authenticate-face`);
   });
 } catch (err) {
   console.error('Error starting server:', err);
 }
-
+ 
 // Add global unhandled exception handler
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION! Shutting down...');
@@ -2905,7 +2905,7 @@ app.post('/api/reset-password-request', async (req, res) => {
     );
     
     // Create reset URL
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
     
     // Configure Nodemailer transporter
     const transporter = nodemailer.createTransport({

@@ -156,7 +156,7 @@ const SDashboard = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch('http://localhost:8081/accepted-users');
+        const response = await fetch(`${API_URL}/accepted-users`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

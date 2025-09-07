@@ -19,10 +19,8 @@ router.post('/updateUserDocument', async (req, res) => {
   let connection;
   try {
     const { userId, documentType, documentUrl, displayName } = req.body;
-    console.log('Received document update request:', req.body);
     
     if (!userId || !documentType || !documentUrl || !displayName) {
-      console.error('Missing required fields:', { userId, documentType, documentUrl, displayName });
       return res.status(400).json({ 
         error: 'Missing required fields',
         details: {
@@ -51,28 +49,23 @@ router.post('/updateUserDocument', async (req, res) => {
     
     // Get the user's code_id and civil status first
     const userQuery = 'SELECT code_id, civil_status FROM users WHERE id = ?';
-    console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await new Promise((resolve, reject) => {
       connection.query(userQuery, [userId], (err, result) => {
         if (err) reject(err);
         else resolve(result);
       });
     });
-    console.log('User query result:', userResult);
     
     if (!userResult || userResult.length === 0) {
-      console.error('User not found:', userId);
       throw new Error(`User with ID ${userId} not found`);
     }
 
     const code_id = userResult[0].code_id;
     const civil_status = userResult[0].civil_status;
-    console.log('Found code_id:', code_id, 'civil_status:', civil_status);
 
     // Validate table name
     const tableInfo = TABLE_NAMES[documentType];
     if (!tableInfo) {
-      console.error('Invalid document type:', documentType);
       throw new Error(`Invalid document type: ${documentType}`);
     }
 
@@ -84,12 +77,10 @@ router.post('/updateUserDocument', async (req, res) => {
         else resolve(result);
       });
     });
-    console.log('Existing document check:', existingDoc);
 
     let result;
     if (existingDoc && existingDoc.length > 0) {
       // Update existing document
-      console.log(`Document already exists for ${documentType}, updating instead of inserting`);
       const updateQuery = `
         UPDATE ${tableInfo.table} 
         SET file_name = ?, uploaded_at = ?, display_name = ?, status = ?
@@ -100,7 +91,6 @@ router.post('/updateUserDocument', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log('Document update result:', result);
     } else {
       // Insert new document
       const insertQuery = `
@@ -112,12 +102,10 @@ router.post('/updateUserDocument', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log('Document insert result:', result);
     }
 
     // Check if all required documents are submitted
     const requiredDocuments = getRequiredDocumentsByCivilStatus(civil_status);
-    console.log('Required documents for civil status:', civil_status, ':', requiredDocuments);
 
     let allDocumentsSubmitted = true;
     for (const docType of requiredDocuments) {
@@ -138,7 +126,6 @@ router.post('/updateUserDocument', async (req, res) => {
 
     // If all documents are submitted, update user status to 'Verified'
     if (allDocumentsSubmitted) {
-      console.log('All required documents submitted, updating user status to Verified');
       const updateStatusQuery = `UPDATE users SET status = 'Verified' WHERE code_id = ?`;
       await new Promise((resolve, reject) => {
         connection.query(updateStatusQuery, [code_id], (err, result) => {
@@ -166,7 +153,6 @@ router.post('/updateUserDocument', async (req, res) => {
       statusUpdated: allDocumentsSubmitted
     });
   } catch (error) {
-    console.error('Error updating document:', error);
     
     // Rollback transaction if there was an error
     if (connection) {
@@ -209,29 +195,22 @@ function getRequiredDocumentsByCivilStatus(civil_status) {
 router.get('/getUserDocuments/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log('Fetching documents for userId:', userId);
 
     // Get user's code_id
     const userQuery = 'SELECT code_id FROM users WHERE id = ?';
-    console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await queryDatabase(userQuery, [userId]);
-    console.log('User query result:', userResult);
     
     if (!userResult || userResult.length === 0) {
-      console.error('User not found:', userId);
       return res.status(404).json({ error: `User with ID ${userId} not found` });
     }
 
     const code_id = userResult[0].code_id;
-    console.log('Found code_id:', code_id);
 
     // Get all documents for the user
     const documents = await getUserDocuments(code_id);
-    console.log('Retrieved documents:', documents);
 
     res.json({ success: true, documents });
   } catch (error) {
-    console.error('Error fetching documents:', error);
     res.status(500).json({ error: 'Failed to fetch documents', details: error.message });
   }
 });
@@ -240,37 +219,29 @@ router.get('/getUserDocuments/:userId', async (req, res) => {
 router.post('/deleteDocument', async (req, res) => {
   try {
     const { userId, documentType } = req.body;
-    console.log('Received delete request:', req.body);
     
     if (!userId || !documentType) {
-      console.error('Missing required fields:', { userId, documentType });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Get the user's code_id first
     const userQuery = 'SELECT code_id FROM users WHERE id = ?';
-    console.log('Executing user query:', userQuery, 'with userId:', userId);
     const userResult = await queryDatabase(userQuery, [userId]);
-    console.log('User query result:', userResult);
     
     if (!userResult || userResult.length === 0) {
-      console.error('User not found:', userId);
       return res.status(404).json({ error: `User with ID ${userId} not found` });
     }
 
     const code_id = userResult[0].code_id;
-    console.log('Found code_id:', code_id);
 
     // Validate table name
     const tableName = TABLE_NAMES[documentType];
     if (!tableName) {
-      console.error('Invalid document type:', documentType);
       return res.status(400).json({ error: `Invalid document type: ${documentType}` });
     }
 
     // Delete from database
     const result = await deleteDocument(tableName.table, code_id);
-    console.log('Delete result:', result);
 
     res.json({ 
       success: true, 
@@ -278,7 +249,6 @@ router.post('/deleteDocument', async (req, res) => {
       affectedRows: result.affectedRows
     });
   } catch (error) {
-    console.error('Error deleting document:', error);
     res.status(500).json({ error: 'Failed to delete document', details: error.message });
   }
 });
@@ -288,8 +258,6 @@ router.post('/submitAllSteps', async (req, res) => {
   let connection;
   try {
     const { step1, step2, step3, step4, step5, step6 } = req.body;
-    console.log('Received all steps data:', req.body);
-    console.log('Step 6 data:', step6);
     
     // Get connection and start transaction
     connection = await new Promise((resolve, reject) => {
@@ -316,7 +284,6 @@ router.post('/submitAllSteps', async (req, res) => {
     
     // First, check if an entry with this email already exists
     const timestamp = Date.now();
-    console.log(`[${timestamp}] Checking for existing email: ${step1.email}`);
 
     // Check user by email in users table
     const userCheckQuery = `SELECT * FROM users WHERE email = ? LIMIT 1`;
@@ -332,7 +299,6 @@ router.post('/submitAllSteps', async (req, res) => {
       if (user.status === 'Declined') {
         // Allow update of all steps and user info, set status to 'Pending'
         const code_id = user.code_id;
-        console.log(`[${timestamp}] Resubmitting for Declined user, code_id: ${code_id}`);
         try {
           // Step 1: Update identifying information
           const updateStep1Query = `UPDATE step1_identifying_information SET
@@ -448,7 +414,10 @@ router.post('/submitAllSteps', async (req, res) => {
                 (err, result) => { if (err) reject(err); else resolve(result); }
               );
             });
-          } catch (notifError) { console.error('Error inserting superadmin notification:', notifError); }
+          } catch (notifError) {
+            // Log notification error but don't fail the main operation
+            console.error('Failed to insert notification:', notifError);
+          }
 
           res.json({
             success: true,
@@ -458,7 +427,6 @@ router.post('/submitAllSteps', async (req, res) => {
           });
           return;
         } catch (innerError) {
-          console.error(`[${timestamp}] Error during resubmission:`, innerError);
           await new Promise((resolve) => connection.rollback(() => resolve()));
           throw innerError;
         }
@@ -484,12 +452,9 @@ router.post('/submitAllSteps', async (req, res) => {
     // Generate a random 6-digit number for the last part
     const randomDigits = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     const code_id = `${year}_${month}_${randomDigits}`;
-    console.log(`[${timestamp}] Generated code_id: ${code_id}`);
-    console.log(`[${timestamp}] Starting transaction with code_id: ${code_id}`);
 
     try {
       // Step 1: Insert identifying information
-      console.log(`[${timestamp}] Inserting step 1...`);
       const step1Query = `
         INSERT INTO step1_identifying_information (
           code_id, first_name, middle_name, last_name, age, gender,
@@ -527,10 +492,8 @@ router.post('/submitAllSteps', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log(`[${timestamp}] Step 1 inserted`);
 
       // Step 2: Insert children information
-      console.log(`[${timestamp}] Inserting step 2...`);
       if (step2.children && step2.children.length > 0) {
         const childrenQuery = `
           INSERT INTO step2_family_occupation (
@@ -551,13 +514,10 @@ router.post('/submitAllSteps', async (req, res) => {
             else resolve(result);
           });
         });
-        console.log(`[${timestamp}] Step 2 inserted`);
       } else {
-        console.log(`[${timestamp}] No children to insert for step 2`);
       }
 
       // Step 3: Insert classification
-      console.log(`[${timestamp}] Inserting step 3...`);
       const step3Query = `
         INSERT INTO step3_classification (
           code_id, classification
@@ -572,10 +532,8 @@ router.post('/submitAllSteps', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log(`[${timestamp}] Step 3 inserted`);
 
       // Step 4: Insert needs/problems
-      console.log(`[${timestamp}] Inserting step 4...`);
       const step4Query = `
         INSERT INTO step4_needs_problems (
           code_id, needs_problems
@@ -590,10 +548,8 @@ router.post('/submitAllSteps', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log(`[${timestamp}] Step 4 inserted`);
 
       // Step 5: Insert emergency contact
-      console.log(`[${timestamp}] Inserting step 5...`);
       const step5Query = `
         INSERT INTO step5_in_case_of_emergency (
           code_id, emergency_name, emergency_relationship,
@@ -612,11 +568,8 @@ router.post('/submitAllSteps', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log(`[${timestamp}] Step 5 inserted`);
 
       // Create user account in the same transaction
-      console.log(`[${timestamp}] Creating user account...`);
-      console.log(`[${timestamp}] Face recognition photo URL:`, step6?.faceRecognitionPhoto);
       
       // First check if user with this email already exists
       const checkEmailQuery = `SELECT id, email FROM users WHERE email = ? LIMIT 1`;
@@ -635,7 +588,6 @@ router.post('/submitAllSteps', async (req, res) => {
       
       if (existingUser && existingUser.length > 0) {
         // If user already exists, update their code_id and faceRecognitionPhoto
-        console.log(`[${timestamp}] User with email ${step1.email} already exists, updating code_id and faceRecognitionPhoto`);
         const updateQuery = `UPDATE users SET code_id = ?, faceRecognitionPhoto = ? WHERE id = ?`;
         await new Promise((resolve, reject) => {
           connection.query(updateQuery, [code_id, step6?.faceRecognitionPhoto || null, existingUser[0].id], (err, result) => {
@@ -643,10 +595,8 @@ router.post('/submitAllSteps', async (req, res) => {
             else resolve(result);
           });
         });
-        console.log(`[${timestamp}] Updated existing user with new code_id and faceRecognitionPhoto`);
       } else {
         // If user doesn't exist, create new user with faceRecognitionPhoto
-        console.log(`[${timestamp}] Creating new user with email ${step1.email}`);
         const userQuery = `
           INSERT INTO users (
             email, code_id, status, name, password, faceRecognitionPhoto
@@ -677,24 +627,20 @@ router.post('/submitAllSteps', async (req, res) => {
             );
           });
         } catch (notifError) { 
-          console.error('Error inserting admin notification:', notifError); 
         }
 
-        console.log(`[${timestamp}] User account created with password set to birthdate and faceRecognitionPhoto`);
       }
 
       // Commit transaction only after all operations succeed
       await new Promise((resolve, reject) => {
         connection.commit(err => {
           if (err) {
-            console.error(`[${timestamp}] Error committing transaction:`, err);
             return connection.rollback(() => reject(err));
           }
           resolve();
         });
       });
 
-      console.log(`[${timestamp}] All steps committed successfully`);
 
       // Insert notification for superadmin after successful commit
       try {
@@ -751,12 +697,9 @@ router.post('/submitAllSteps', async (req, res) => {
               }
             );
           });
-          console.log('Superadmin notification inserted for document upload');
         } else {
-          console.warn('User ID not found for notification');
         }
       } catch (notifError) {
-        console.error('Error inserting superadmin notification:', notifError);
       }
 
       res.json({
@@ -766,18 +709,15 @@ router.post('/submitAllSteps', async (req, res) => {
       });
     } catch (innerError) {
       // If we encounter any error during the insert steps, roll back and throw
-      console.error(`[${timestamp}] Error during steps submission:`, innerError);
       await new Promise((resolve) => connection.rollback(() => resolve()));
       throw innerError;
     }
   } catch (error) {
-    console.error('Error submitting steps:', error);
     // Roll back transaction if an error occurred
     if (connection) {
       try {
         await new Promise((resolve) => connection.rollback(() => resolve()));
       } catch (rollbackError) {
-        console.error('Error during rollback:', rollbackError);
       }
     }
     
@@ -817,7 +757,6 @@ router.post('/submitAllSteps', async (req, res) => {
           });
         });
       } catch (err) {
-        console.error('Error resetting isolation level:', err);
       }
       
       connection.release();
@@ -829,7 +768,6 @@ router.post('/follow_up', async (req, res) => {
   const { code_id, document_type, file_url, display_name, status = 'Pending' } = req.body;
   let connection;
 
-  console.log('Received follow-up document upload request:', req.body);
 
   try {
     // Validate document type
@@ -894,7 +832,6 @@ router.post('/follow_up', async (req, res) => {
 
     res.json({ success: true, message: 'Follow-up document uploaded successfully' });
   } catch (error) {
-    console.error('Error uploading document to updateMissingDocument:', error);
     if (connection) {
       await new Promise((resolve) => {
         connection.rollback(() => resolve());
@@ -914,7 +851,6 @@ router.post('/:documentType', async (req, res) => {
   const { code_id, file_name, uploaded_at, display_name, status = 'Pending' } = req.body;
   let connection;
 
-  console.log('Received document upload request:', req.body);
 
   try {
     // Validate document type
@@ -948,8 +884,6 @@ router.post('/:documentType', async (req, res) => {
     });
     
     if (!verifyResult || verifyResult.length === 0) {
-      console.error('Invalid code_id:', code_id);
-      console.error('Verification result:', verifyResult);
       throw new Error(`Invalid code_id: ${code_id}`);
     }
 
@@ -961,7 +895,6 @@ router.post('/:documentType', async (req, res) => {
         else resolve(result);
       });
     });
-    console.log('Existing document:', existingDoc);
 
     let result;
     if (existingDoc.length > 0) {
@@ -976,7 +909,6 @@ router.post('/:documentType', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log('Updated document:', result);
     } else {
       // Insert new document
       let insertQuery;
@@ -999,7 +931,6 @@ router.post('/:documentType', async (req, res) => {
           else resolve(result);
         });
       });
-      console.log('Inserted document:', result);
     }
 
     // Commit the transaction
@@ -1092,13 +1023,10 @@ router.post('/:documentType', async (req, res) => {
               }
             );
           });
-          console.log('Superadmin notification inserted for document upload');
         }
       } else {
-        console.warn('User ID not found for notification');
       }
     } catch (notifError) {
-      console.error('Error inserting superadmin notification:', notifError);
     }
 
     res.json({
@@ -1107,7 +1035,6 @@ router.post('/:documentType', async (req, res) => {
       documentId: result.insertId || existingDoc[0]?.[tableName.idColumn]
     });
   } catch (error) {
-    console.error(`Error uploading document to ${documentType}:`, error);
     
     // Rollback transaction if there was an error
     if (connection) {
@@ -1134,7 +1061,6 @@ router.post('/barangay_cert', async (req, res) => {
   let connection;
   try {
     const { code_id, file_name, display_name } = req.body;
-    console.log('Received barangay certificate upload request:', req.body);
 
     if (!code_id || !file_name || !display_name) {
       return res.status(400).json({
@@ -1173,7 +1099,6 @@ router.post('/barangay_cert', async (req, res) => {
     });
     
     if (!verifyResult || verifyResult.length === 0) {
-      console.error('Invalid code_id:', code_id);
       throw new Error(`Invalid code_id: ${code_id}`);
     }
 
@@ -1229,7 +1154,6 @@ router.post('/barangay_cert', async (req, res) => {
       documentId: result.insertId || existingDoc[0]?.[TABLE_NAMES['barangay_cert'].idColumn]
     });
   } catch (error) {
-    console.error('Error uploading barangay certificate:', error);
     
     // Rollback transaction if there was an error
     if (connection) {
@@ -1290,7 +1214,6 @@ router.get('/follow_up_documents', async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    console.error('Error fetching documents:', error);
     res.status(500).json({ error: 'Failed to fetch documents' });
   } finally {
     if (connection) {
@@ -1305,7 +1228,6 @@ router.delete('/barangay_cert/:code_id', async (req, res) => {
     await queryDatabase('DELETE FROM barangay_cert_documents WHERE code_id = ?', [code_id]);
     res.json({ message: 'Barangay certificate deleted successfully' });
   } catch (error) {
-    console.error('Error deleting barangay certificate:', error);
     res.status(500).json({ error: 'Failed to delete barangay certificate' });
   }
 });
