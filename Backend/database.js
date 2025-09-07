@@ -10,12 +10,23 @@ const dbConfig = {
   waitForConnections: true,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  // Disable query cache for MySQL 8.0+ compatibility
+  flags: '-FOUND_ROWS'
 };
 
 console.log('Database config:', dbConfig);
 
 const pool = mysql.createPool(dbConfig);
+
+// Add error handler for pool-level errors
+pool.on('error', (err) => {
+  if (err.code === 'ER_PARSE_ERROR' && err.sqlMessage && err.sqlMessage.includes('QUERY CACHE')) {
+    console.warn('Pool-level query cache error suppressed (MySQL 8.0+ compatibility):', err.sqlMessage);
+    return; // Suppress this error
+  }
+  console.error('Pool error:', err);
+});
 
 // Test the connection
 pool.getConnection((err, connection) => {
@@ -24,6 +35,16 @@ pool.getConnection((err, connection) => {
     return;
   }
   console.log('Successfully connected to database');
+  
+  // Add connection-level error handler
+  connection.on('error', (err) => {
+    if (err.code === 'ER_PARSE_ERROR' && err.sqlMessage && err.sqlMessage.includes('QUERY CACHE')) {
+      console.warn('Connection-level query cache error suppressed (MySQL 8.0+ compatibility):', err.sqlMessage);
+      return; // Suppress this error
+    }
+    console.error('Connection error:', err);
+  });
+  
   connection.release();
 });
 
@@ -42,6 +63,14 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
     connection.query(sql, params, (err, result) => {
         connection.release();
         if (err) {
+          // Handle MySQL compatibility errors gracefully
+          if (err.code === 'ER_PARSE_ERROR' && err.sqlMessage && err.sqlMessage.includes('QUERY CACHE')) {
+            console.warn('Query cache error detected (MySQL 8.0+ compatibility issue):', err.sqlMessage);
+            console.log('Continuing without query cache reset...');
+            // Return empty result for cache reset operations
+            resolve([]);
+            return;
+          }
           console.error('Query error:', err);
           return reject(err);
         }

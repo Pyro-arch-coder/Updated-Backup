@@ -375,14 +375,14 @@ router.put('/posts/:id/status', async (req, res) => {
 router.get('/admin/posts', async (req, res) => {
   try {
     const posts = await queryDatabase(`
-      SELECT p.*, 
+      SELECT p.id, p.title, p.content, p.author, p.user_id, p.created_at, p.updated_at, p.status, p.visibility, p.barangay,
              COUNT(DISTINCT l.id) as likes,
              GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users,
              u.profilePic
       FROM forum_posts p
       LEFT JOIN forum_likes l ON p.id = l.post_id
       LEFT JOIN users u ON p.user_id = u.id
-      GROUP BY p.id
+      GROUP BY p.id, p.title, p.content, p.author, p.user_id, p.created_at, p.updated_at, p.status, p.visibility, p.barangay, u.profilePic
       ORDER BY p.created_at DESC
     `);
     
