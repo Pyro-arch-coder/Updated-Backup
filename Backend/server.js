@@ -4773,6 +4773,37 @@ app.put('/api/user-childrequest/mark-all-as-read/:userId', async (req, res) => {
   }
 });
 
+// GET children data for a specific user
+app.get('/api/children/user/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    console.log(`Fetching children data for user: ${userId}`);
+    
+    // First, get the user's code_id
+    const userResult = await queryDatabase('SELECT code_id FROM users WHERE id = ?', [userId]);
+    
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const { code_id } = userResult[0];
+    
+    // Get children data from step2_family_occupation table
+    const children = await queryDatabase(`
+      SELECT family_member_name, age, educational_attainment, birthdate
+      FROM step2_family_occupation
+      WHERE code_id = ?
+      ORDER BY age ASC
+    `, [code_id]);
+    
+    console.log(`Found ${children.length} children for user ${userId}`);
+    res.json({ success: true, children });
+  } catch (error) {
+    console.error('Error fetching children data:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch children data' });
+  }
+});
+
 app.get('/newchildrequest/all', async (req, res) => {
   try {
     const rows = await queryDatabase('SELECT * FROM newchildrequest ORDER BY requested_at DESC');
