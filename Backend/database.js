@@ -38,13 +38,8 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
     console.log('SQL:', sql);
     console.log('Parameters:', params);
 
-    // Reset the connection before executing the query
-    connection.query('RESET QUERY CACHE', (err) => {
-      if (err) {
-        console.error('Error resetting query cache:', err);
-      }
-
-      connection.query(sql, params, (err, result) => {
+    // Execute the query directly
+    connection.query(sql, params, (err, result) => {
         connection.release();
         if (err) {
           console.error('Query error:', err);
@@ -56,7 +51,6 @@ const queryDatabase = (sql, params) => new Promise((resolve, reject) => {
       });
     });
   });
-});
 
 const upsertDocument = async (tableName, code_id, file_name, display_name, status = 'Pending') => {
   let connection;
