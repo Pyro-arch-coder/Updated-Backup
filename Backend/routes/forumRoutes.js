@@ -11,6 +11,13 @@ router.get('/posts', async (req, res) => {
       return res.status(400).json({ message: 'User ID is required' });
     }
 
+    // First check if user exists in users table
+    const userExists = await queryDatabase(`SELECT id FROM users WHERE id = ?`, [userId]);
+    
+    if (!userExists || userExists.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     // Get user's barangay from step1_identifying_information
     const userResult = await queryDatabase(`
       SELECT u.code_id, s.barangay 
@@ -19,14 +26,12 @@ router.get('/posts', async (req, res) => {
       WHERE u.id = ?
     `, [userId]);
 
-    if (!userResult || userResult.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const userBarangay = userResult[0].barangay;
+    // If user doesn't have barangay info, show all posts with visibility 'everyone'
+    const userBarangay = userResult[0].barangay || null;
 
     // Get posts with status Verified or if no status, treat as Verified (for backward compatibility)
     // Only show posts that match user's barangay or have visibility 'everyone'
+    // If user has no barangay, only show posts with visibility 'everyone'
     const posts = await queryDatabase(`
       SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
              COUNT(DISTINCT l.id) as likes,
@@ -34,10 +39,10 @@ router.get('/posts', async (req, res) => {
       FROM forum_posts p
       LEFT JOIN forum_likes l ON p.id = l.post_id
       WHERE (p.status = 'Verified' OR p.status IS NULL)
-      AND (p.visibility = 'everyone' OR p.barangay = ?)
+      AND (p.visibility = 'everyone' OR (? IS NOT NULL AND p.barangay = ?))
       GROUP BY p.id
       ORDER BY p.created_at DESC
-    `, [userBarangay]);
+    `, [userBarangay, userBarangay]);
     
     // Format the liked_by_users field for each post and set author to Anonymous
     posts.forEach(post => {

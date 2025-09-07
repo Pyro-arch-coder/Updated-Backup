@@ -130,7 +130,7 @@ const Profile = () => {
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
-  const CLOUD_NAME = 'dskj7oxr7';
+  const CLOUD_NAME = 'dpijzjma8';
   const UPLOAD_PRESET = 'soloparent';
   const CLOUDINARY_FOLDER = 'soloparent/users';
 
@@ -674,22 +674,22 @@ const Profile = () => {
     // Only update if status needs to change
     if ((isComplete && currentStatus === 'Incomplete') || 
         (!isComplete && currentStatus === 'Verified')) {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/updateUserStatusIncompleteDocuments`, {
-        code_id: user.code_id,
-        status: isComplete ? 'Verified' : 'Incomplete'
-      });
-      
-      if (response.data.success) {
-        setUser(prev => ({
-          ...prev,
+      try {
+        const response = await axios.post(`${API_BASE_URL}/updateUserStatusIncompleteDocuments`, {
+          code_id: user.code_id,
           status: isComplete ? 'Verified' : 'Incomplete'
-        }));
+        });
+        
+        if (response.data.success) {
+          setUser(prev => ({
+            ...prev,
+            status: isComplete ? 'Verified' : 'Incomplete'
+          }));
+        }
+      } catch (error) {
+        console.error('Error updating user status:', error);
+        toast.error('Failed to update status. Please try again later.');
       }
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      toast.error('Failed to update status. Please try again later.');
-    }
     }
   };
 
@@ -968,13 +968,13 @@ const Profile = () => {
 
   // Function to fetch child requests
   const fetchChildRequests = async () => {
-    if (!user?.code_id) return;
+    if (!loggedInUserId) return;
     
     setLoadingChildRequests(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/children/user/${user.code_id}`, { withCredentials: true });
+      const response = await axios.get(`${API_BASE_URL}/api/children/user/${loggedInUserId}`, { withCredentials: true });
       if (response.data.success) {
-        setChildRequests(response.data.childRequests);
+        setChildRequests(response.data.children);
       }
     } catch (error) {
       console.error('Error fetching child requests:', error);
@@ -985,10 +985,10 @@ const Profile = () => {
 
   // Fetch child requests when user data is available
   useEffect(() => {
-    if (user?.code_id) {
+    if (loggedInUserId) {
       fetchChildRequests();
     }
-  }, [user?.code_id]);
+  }, [loggedInUserId]);
 
   const EventModal = () => selectedEvent && (
     <div className="modal-overlay" style={{zIndex: 3000}}>

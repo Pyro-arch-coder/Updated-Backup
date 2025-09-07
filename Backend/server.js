@@ -74,11 +74,18 @@ app.delete('/api/notifications', async (req, res) => {
 app.put('/api/notifications/mark-as-read/:notifId', async (req, res) => {
   const notifId = req.params.notifId;
   try {
-    const updateQuery = 'UPDATE superadminnotifications SET is_read = 1 WHERE id = ?';
-    const result = await queryDatabase(updateQuery, [notifId]);
-    if (result.affectedRows === 0) {
+    // First check if notification exists
+    const checkQuery = 'SELECT id FROM superadminnotifications WHERE id = ?';
+    const existingNotif = await queryDatabase(checkQuery, [notifId]);
+    
+    if (existingNotif.length === 0) {
       return res.status(404).json({ success: false, message: 'Notification not found' });
     }
+    
+    // Update the notification (even if already read)
+    const updateQuery = 'UPDATE superadminnotifications SET is_read = 1 WHERE id = ?';
+    await queryDatabase(updateQuery, [notifId]);
+    
     res.json({ success: true, message: 'Notification marked as read' });
   } catch (error) {
     console.error('Error marking notification as read:', error);
@@ -3218,17 +3225,19 @@ app.post('/updateUserStatusIncompleteDocuments', async (req, res) => {
 
     console.log('Updating status to:', newStatus);
 
-    // Update user status
-    const updateQuery = `UPDATE users SET status = ? WHERE code_id = ?`;
-    const result = await queryDatabase(updateQuery, [newStatus, code_id]);
-
-    if (result.affectedRows === 0) {
+    // Check if user exists before updating
+    const userExists = await queryDatabase('SELECT id FROM users WHERE code_id = ?', [code_id]);
+    if (!userExists || userExists.length === 0) {
       await queryDatabase('ROLLBACK');
       return res.status(404).json({ 
         success: false, 
         error: 'User not found' 
       });
     }
+
+    // Update user status (regardless of whether it changes)
+    const updateQuery = `UPDATE users SET status = ? WHERE code_id = ?`;
+    await queryDatabase(updateQuery, [newStatus, code_id]);
 
     // Insert notification if user is now Verified
     if (newStatus === 'Verified') {
