@@ -37,16 +37,16 @@ router.get('/posts', async (req, res) => {
     if (userBarangay) {
       // If user has a barangay, show both their barangay posts and everyone posts
       posts = await queryDatabase(`
-        SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
+       SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
                COUNT(DISTINCT l.id) as likes,
                IFNULL(GROUP_CONCAT(DISTINCT l.user_id), 'None') as liked_by_users
         FROM forum_posts p
         LEFT JOIN forum_likes l ON p.id = l.post_id
         WHERE (p.status = 'Verified' OR p.status IS NULL)
-        AND (p.visibility = 'everyone' OR p.barangay = ?)
+        AND (p.visibility = 'everyone' OR p.barangay = '${userBarangay}')
         GROUP BY p.id
         ORDER BY p.created_at DESC
-      `, [userBarangay]);
+      `);
     } else {
       // If user has no barangay, only show posts with visibility 'everyone'
       posts = await queryDatabase(`
