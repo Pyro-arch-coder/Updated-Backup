@@ -32,17 +32,35 @@ router.get('/posts', async (req, res) => {
     // Get posts with status Verified or if no status, treat as Verified (for backward compatibility)
     // Only show posts that match user's barangay or have visibility 'everyone'
     // If user has no barangay, only show posts with visibility 'everyone'
-    const posts = await queryDatabase(`
-      SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
-             COUNT(DISTINCT l.id) as likes,
-             GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users
-      FROM forum_posts p
-      LEFT JOIN forum_likes l ON p.id = l.post_id
-      WHERE (p.status = 'Verified' OR p.status IS NULL)
-      AND (p.visibility = 'everyone' OR (? IS NOT NULL AND p.barangay = ?))
-      GROUP BY p.id
-      ORDER BY p.created_at DESC
-    `, [userBarangay, userBarangay]);
+    let posts = [];
+    
+    if (userBarangay) {
+      // If user has a barangay, show both their barangay posts and everyone posts
+      posts = await queryDatabase(`
+        SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
+               COUNT(DISTINCT l.id) as likes,
+               GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users
+        FROM forum_posts p
+        LEFT JOIN forum_likes l ON p.id = l.post_id
+        WHERE (p.status = 'Verified' OR p.status IS NULL)
+        AND (p.visibility = 'everyone' OR p.barangay = '${userBarangay}')
+        GROUP BY p.id
+        ORDER BY p.created_at DESC
+      `);
+    } else {
+      // If user has no barangay, only show posts with visibility 'everyone'
+      posts = await queryDatabase(`
+        SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
+               COUNT(DISTINCT l.id) as likes,
+               GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users
+        FROM forum_posts p
+        LEFT JOIN forum_likes l ON p.id = l.post_id
+        WHERE (p.status = 'Verified' OR p.status IS NULL)
+        AND p.visibility = 'everyone'
+        GROUP BY p.id
+        ORDER BY p.created_at DESC
+      `);
+    }
     
     // Format the liked_by_users field for each post and set author to Anonymous
     posts.forEach(post => {
@@ -100,17 +118,16 @@ router.post('/posts', async (req, res) => {
     let postVisibility = visibility || 'everyone';
     let barangay = null;
 
-    // If visibility is 'barangay', fetch the user's barangay from step1_identifying_information
-    if (postVisibility === 'barangay') {
-      // Get code_id from users table
-      const userResult = await queryDatabase('SELECT code_id FROM users WHERE id = ?', [user_id]);
-      const code_id = userResult[0]?.code_id || null;
+    // Always get the user's barangay for every post
+    const userResult = await queryDatabase('SELECT code_id FROM users WHERE id = ?', [user_id]);
+    const code_id = userResult[0]?.code_id || null;
 
-      if (code_id) {
-        // Get barangay from step1_identifying_information
-        const step1Result = await queryDatabase('SELECT barangay FROM step1_identifying_information WHERE code_id = ?', [code_id]);
-        barangay = step1Result[0]?.barangay || null;
-      }
+    if (code_id) {
+      const step1Result = await queryDatabase(
+        'SELECT barangay FROM step1_identifying_information WHERE code_id = ?', 
+        [code_id]
+      );
+      barangay = step1Result[0]?.barangay || null;
     }
 
     const result = await queryDatabase(
