@@ -1403,6 +1403,13 @@ const SoloParentManagement = () => {
       const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser') || '{}');
       const loggedInUserId = localStorage.getItem('UserId') || localStorage.getItem('id');
       
+      // Validate required fields
+      if (!revokeUser.code_id || !userId || !loggedInUserId) {
+        setSuccessMessage('Missing required information. Please refresh the page and try again.');
+        setTimeout(() => setShowSuccessModal(false), 3000);
+        return;
+      }
+      
       // Create the payload
       const payload = {
         code_id: revokeUser.code_id,

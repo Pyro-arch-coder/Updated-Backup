@@ -61,10 +61,11 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     const loadModels = async () => {
         try {
             setMessage('Loading face detection models...');
+            const modelUrl = `${API_BASE_URL}/models`;
             await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-                faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-                faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+                faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl),
+                faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl),
+                faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl)
             ]);
             setModelsLoaded(true);
             setMessage('Models loaded successfully! You can now start the camera.');
@@ -384,12 +385,12 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
             // Create form data
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('upload_preset', 'soloparent');
+            formData.append('upload_preset', process.env.REACT_APP_UPLOAD_PRESET || 'soloparent');
             formData.append('folder', `soloparent/users/${userId}/face_recognition`);
 
             // Upload to Cloudinary
             const cloudinaryResponse = await fetch(
-                `https://api.cloudinary.com/v1_1/dskj7oxr7/image/upload`,
+                `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUD_NAME || 'dpijzjma8'}/image/upload`,
                 {
                     method: 'POST',
                     body: formData
@@ -486,4 +487,4 @@ const FaceAuth = ({ onLoginSuccess, email }) => {
     );
 };
 
-export default FaceAuth; 
+export default FaceAuth;

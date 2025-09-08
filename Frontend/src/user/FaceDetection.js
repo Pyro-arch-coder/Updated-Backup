@@ -24,8 +24,8 @@ const FaceDetection = ({ onPhotoCapture }) => {
             setModelError(null);
             console.log('Starting to load models...');
             
-            // Load models from the public directory
-            const MODEL_URL = '/models';
+            // Load models from the backend server
+            const MODEL_URL = `${process.env.REACT_APP_API_URL || 'http://localhost:8081'}/models`;
             
             // Add a small delay to ensure the server is ready
             if (retryCount === 0) {

@@ -97,8 +97,8 @@ const Events = () => {
   const [filterDate, setFilterDate] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const CLOUD_NAME = 'dpijzjma8';
-  const UPLOAD_PRESET = 'soloparent';
+  const CLOUD_NAME = process.env.REACT_APP_CLOUD_NAME || 'dpijzjma8';
+  const UPLOAD_PRESET = process.env.REACT_APP_UPLOAD_PRESET || 'soloparent';
   const [eventImage, setEventImage] = useState(null);
   const [eventImagePreview, setEventImagePreview] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);

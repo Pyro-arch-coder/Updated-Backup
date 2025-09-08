@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path');
 const app = express();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
@@ -53,6 +54,9 @@ cloudinary.config({
 });
 
 const { pool, queryDatabase } = require('./database');
+
+// Serve face-api.js models as static files
+app.use('/models', express.static(path.join(__dirname, 'models')));
 
 // Add logging middleware
 app.use((req, res, next) => {
@@ -4415,7 +4419,7 @@ app.post('/update-beneficiary-status', async (req, res) => {
 app.post('/api/updateUserInformation', async (req, res) => {
   const { 
     userId, first_name, middle_name, last_name, suffix,
-    gender, date_of_birth, place_of_birth, religion, civil_status, income, contact_number
+    gender, date_of_birth, place_of_birth, religion, civil_status, income, contact_number, barangay
   } = req.body;
   
   try {
@@ -4440,7 +4444,8 @@ app.post('/api/updateUserInformation', async (req, res) => {
       religion,
       civil_status,
       income, // Assuming the column name in the DB is `income`
-      contact_number
+      contact_number,
+      barangay
     };
 
     const updateFields = [];

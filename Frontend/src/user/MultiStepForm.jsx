@@ -111,12 +111,12 @@ export default function MultiStepForm() {
       // Create form data for Cloudinary
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', 'soloparent');
+      formData.append('upload_preset', process.env.REACT_APP_UPLOAD_PRESET || 'soloparent');
       formData.append('folder', 'soloparent/users/face_recognition');
 
       // Upload to Cloudinary
       const cloudinaryResponse = await fetch(
-        `https://api.cloudinary.com/v1_1/dpijzjma8/image/upload`,
+        `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUD_NAME || 'dpijzjma8'}/image/upload`,
         {
           method: 'POST',
           body: formData

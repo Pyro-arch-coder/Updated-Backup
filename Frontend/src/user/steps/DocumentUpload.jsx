@@ -94,11 +94,11 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       console.log('Uploading to Cloudinary:', { file, documentType, code_id });
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', 'soloparent');
+      formData.append('upload_preset', process.env.REACT_APP_UPLOAD_PRESET || 'soloparent');
       formData.append('folder', `soloparent/users/${code_id}/documents/${documentType}`);
 
       const response = await axios.post(
-        'https://api.cloudinary.com/v1_1/dpijzjma8/upload',
+        `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUD_NAME || 'dpijzjma8'}/auto/upload`,
         formData,
         {
           onUploadProgress: (progressEvent) => {
@@ -120,7 +120,25 @@ const DocumentUpload = ({ formData, updateFormData, prevStep, handleSubmit }) =>
       return response.data.secure_url;
     } catch (error) {
       console.error(`Error uploading ${documentType} to Cloudinary:`, error);
-      throw error;
+      
+      // Extract more detailed error information
+      let errorMessage = 'Upload failed';
+      if (error.response) {
+        // Server responded with error status
+        console.error('Cloudinary error response:', error.response.data);
+        errorMessage = error.response.data?.error?.message || 
+                      error.response.data?.message || 
+                      `HTTP ${error.response.status}: ${error.response.statusText}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('No response from Cloudinary:', error.request);
+        errorMessage = 'No response from Cloudinary server';
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'Unknown upload error';
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 

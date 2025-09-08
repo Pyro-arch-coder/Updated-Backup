@@ -154,6 +154,39 @@ router.post('/', async (req, res) => {
   const { title, description, startDate, startTime, endTime, location, status, visibility, barangay, image } = req.body;
   
   try {
+    // Input validation
+    if (!title || !description || !startDate || !startTime || !endTime || !location) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        details: 'title, description, startDate, startTime, endTime, and location are required' 
+      });
+    }
+
+    // Validate title length
+    if (title.length > 255) {
+      return res.status(400).json({ 
+        error: 'Invalid input', 
+        details: 'Title must be 255 characters or less' 
+      });
+    }
+
+    // Validate date format
+    if (isNaN(Date.parse(startDate))) {
+      return res.status(400).json({ 
+        error: 'Invalid date format', 
+        details: 'startDate must be a valid date' 
+      });
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      return res.status(400).json({ 
+        error: 'Invalid time format', 
+        details: 'Time must be in HH:MM format' 
+      });
+    }
+    
     console.log("\n=== Event Creation Debug ===");
     console.log("Raw request body:", req.body);
     console.log("Extracted barangay value:", barangay);
@@ -216,7 +249,40 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating event:', error);
-    res.status(500).json({ error: 'Error creating event' });
+    
+    // Handle specific database errors
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(500).json({ 
+        error: 'Database table not found', 
+        details: 'Events table does not exist' 
+      });
+    }
+    
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(500).json({ 
+        error: 'Database schema error', 
+        details: 'Invalid column in events table' 
+      });
+    }
+    
+    if (error.code === 'ER_DATA_TOO_LONG') {
+      return res.status(400).json({ 
+        error: 'Data too long', 
+        details: 'One or more fields exceed maximum length' 
+      });
+    }
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ 
+        error: 'Duplicate entry', 
+        details: 'An event with similar details already exists' 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Error creating event', 
+      details: error.message 
+    });
   }
 });
 
@@ -226,6 +292,46 @@ router.put('/:id', async (req, res) => {
   const { title, description, startDate, startTime, endTime, location, status, visibility, barangay, image } = req.body;
   
   try {
+    // Validate event ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        error: 'Invalid event ID', 
+        details: 'Event ID must be a valid number' 
+      });
+    }
+
+    // Input validation
+    if (!title || !description || !startDate || !startTime || !endTime || !location) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        details: 'title, description, startDate, startTime, endTime, and location are required' 
+      });
+    }
+
+    // Validate title length
+    if (title.length > 255) {
+      return res.status(400).json({ 
+        error: 'Invalid input', 
+        details: 'Title must be 255 characters or less' 
+      });
+    }
+
+    // Validate date format
+    if (isNaN(Date.parse(startDate))) {
+      return res.status(400).json({ 
+        error: 'Invalid date format', 
+        details: 'startDate must be a valid date' 
+      });
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      return res.status(400).json({ 
+        error: 'Invalid time format', 
+        details: 'Time must be in HH:MM format' 
+      });
+    }
     // Check for time conflicts
     const { hasConflict, conflictingEvent } = await checkTimeConflict(
       startDate,
@@ -278,7 +384,33 @@ router.put('/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating event:', error);
-    res.status(500).json({ error: 'Error updating event' });
+    
+    // Handle specific database errors
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(500).json({ 
+        error: 'Database table not found', 
+        details: 'Events table does not exist' 
+      });
+    }
+    
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(500).json({ 
+        error: 'Database schema error', 
+        details: 'Invalid column in events table' 
+      });
+    }
+    
+    if (error.code === 'ER_DATA_TOO_LONG') {
+      return res.status(400).json({ 
+        error: 'Data too long', 
+        details: 'One or more fields exceed maximum length' 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Error updating event', 
+      details: error.message 
+    });
   }
 });
 
@@ -287,30 +419,51 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   
   try {
+    // Validate event ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        error: 'Invalid event ID', 
+        details: 'Event ID must be a valid number' 
+      });
+    }
+
+    // Check if event exists
+    const existingEvent = await queryDatabase('SELECT id FROM events WHERE id = ?', [id]);
+    if (existingEvent.length === 0) {
+      return res.status(404).json({ 
+        error: 'Event not found', 
+        details: 'No event found with the specified ID' 
+      });
+    }
+
     await queryDatabase('UPDATE events SET status = ? WHERE id = ?', ['Archived', id]);
     res.json({ message: 'Event archived successfully' });
   } catch (error) {
     console.error('Error archiving event:', error);
-    res.status(500).json({ error: 'Error archiving event' });
+    
+    // Handle specific database errors
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(500).json({ 
+        error: 'Database table not found', 
+        details: 'Events table does not exist' 
+      });
+    }
+    
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(500).json({ 
+        error: 'Database schema error', 
+        details: 'Invalid column in events table' 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Error archiving event', 
+      details: error.message 
+    });
   }
 });
 
-// Mark event as read
-router.put('/mark-as-read/:id', async (req, res) => {
-  const { id } = req.params;
-  
-  try {
-    await queryDatabase(
-      'UPDATE events SET is_read = 1 WHERE id = ?',
-      [id]
-    );
-    
-    res.json({ success: true, message: 'Event marked as read' });
-  } catch (error) {
-    console.error('Error marking event as read:', error);
-    res.status(500).json({ error: 'Error marking event as read' });
-  }
-});
+// Duplicate route removed - using the first implementation that handles event_reads table
 
 // Get attendees for an event (API route for frontend)
 router.get('/:eventId/attendees', async (req, res) => {
@@ -341,6 +494,38 @@ router.post('/:eventId/attendees', async (req, res) => {
     const { eventId } = req.params;
     const { userId } = req.body;
     
+    // Validate input parameters
+    if (!eventId || !userId) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters', 
+        details: 'eventId and userId are required' 
+      });
+    }
+
+    // Validate eventId is a number
+    if (isNaN(parseInt(eventId))) {
+      return res.status(400).json({ 
+        error: 'Invalid event ID', 
+        details: 'Event ID must be a valid number' 
+      });
+    }
+
+    // Validate userId is a number
+    if (isNaN(parseInt(userId))) {
+      return res.status(400).json({ 
+        error: 'Invalid user ID', 
+        details: 'User ID must be a valid number' 
+      });
+    }
+    
+    // Check if event exists
+    const eventQuery = `SELECT id FROM events WHERE id = ? AND status != 'Archived'`;
+    const eventResult = await queryDatabase(eventQuery, [eventId]);
+    
+    if (!eventResult || eventResult.length === 0) {
+      return res.status(404).json({ error: 'Event not found or archived' });
+    }
+    
     // First get user details
     const userQuery = `
       SELECT u.id, u.code_id, u.name, u.email 
@@ -355,6 +540,14 @@ router.post('/:eventId/attendees', async (req, res) => {
 
     const user = userResult[0];
 
+    // Validate user has required fields
+    if (!user.code_id || !user.name || !user.email) {
+      return res.status(400).json({ 
+        error: 'User missing required information', 
+        details: 'User must have code_id, name, and email' 
+      });
+    }
+
     // Check if user is already an attendee
     const checkQuery = `
       SELECT id FROM attendees 
@@ -366,18 +559,23 @@ router.post('/:eventId/attendees', async (req, res) => {
       return res.status(400).json({ error: 'User is already an attendee' });
     }
 
-    // Add attendee
+    // Add attendee with proper error handling
     const insertQuery = `
       INSERT INTO attendees (event_id, code_id, name, email, attend_at) 
       VALUES (?, ?, ?, ?, NOW())
     `;
     
-    await queryDatabase(insertQuery, [
+    const insertResult = await queryDatabase(insertQuery, [
       eventId,
       user.code_id,
       user.name,
       user.email
     ]);
+
+    // Verify insertion was successful
+    if (!insertResult || !insertResult.insertId) {
+      throw new Error('Failed to insert attendee record');
+    }
 
     // Get updated attendees list
     const attendeesQuery = `
@@ -397,6 +595,29 @@ router.post('/:eventId/attendees', async (req, res) => {
     });
   } catch (error) {
     console.error('Error adding attendee:', error);
+    
+    // Handle specific database errors
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(500).json({ 
+        error: 'Database table not found', 
+        details: 'Attendees table does not exist' 
+      });
+    }
+    
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(500).json({ 
+        error: 'Database schema error', 
+        details: 'Invalid column in attendees table' 
+      });
+    }
+    
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ 
+        error: 'Duplicate entry', 
+        details: 'User is already an attendee for this event' 
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to add attendee', 
       details: error.message 

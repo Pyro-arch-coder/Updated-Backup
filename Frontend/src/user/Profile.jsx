@@ -130,8 +130,8 @@ const Profile = () => {
 
   const loggedInUserId = localStorage.getItem("UserId");
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
-  const CLOUD_NAME = 'dpijzjma8';
-  const UPLOAD_PRESET = 'soloparent';
+  const CLOUD_NAME = process.env.REACT_APP_CLOUD_NAME || 'dpijzjma8';
+const UPLOAD_PRESET = process.env.REACT_APP_UPLOAD_PRESET || 'soloparent';
   const CLOUDINARY_FOLDER = 'soloparent/users';
 
   const documentTypes = {
@@ -355,6 +355,12 @@ const Profile = () => {
   // Update the uploadDocument function to set status to 'Pending' for Barangay Certificate
   const uploadDocument = async (file, documentType) => {
     if (!file) return;
+
+    // Validate that user and code_id exist
+    if (!user || !user.code_id) {
+      toast.error('User information not loaded. Please refresh the page and try again.');
+      return;
+    }
 
     const uploadingToastId = toast.loading(`Uploading ${documentTypes[documentType]}...`);
     setIsUploading(true);
@@ -858,6 +864,10 @@ const Profile = () => {
   };
 
   const deletePreviousBarangayCert = async () => {
+      if (!user || !user.code_id) {
+        console.error('User information not available for deleting barangay certificate');
+        return;
+      }
       try {
         await axios.delete(`${API_BASE_URL}/api/documents/barangay_cert/${user.code_id}`);
         // Update local documents state to remove the barangay certificate
@@ -868,10 +878,7 @@ const Profile = () => {
     };
   // Enhanced logging to diagnose the issue
   useEffect(() => {
-    console.log('Checking if ID is expired...');
-    console.log('User validUntil:', user?.validUntil);
-    console.log('Current date:', new Date());
-    console.log('Is ID expired:', isIDExpired());
+    
     if (user && isIDExpired() && user.status !== "Renewal") {
       console.log('ID is expired, updating status to Renewal...');
       // Delete barangay certificate first, then update status
@@ -893,6 +900,11 @@ const Profile = () => {
     setFetchingRatings(true);
     setHasAttended(false);
     setHasRated(false);
+    if (!user || !user.code_id) {
+      toast.error('User information not available. Please refresh the page.');
+      setFetchingRatings(false);
+      return;
+    }
     try {
       const attendanceRes = await axios.post(`${API_BASE_URL}/api/events/checkAttendance`, {
         eventId: event.id,
@@ -926,6 +938,9 @@ const Profile = () => {
 
   const submitRating = async () => {
     if (!userRating) return toast.error('Please select a rating');
+    if (!user || !user.code_id) {
+      return toast.error('User information not available. Please refresh the page.');
+    }
     setSubmittingRating(true);
     try {
       await axios.post(`${API_BASE_URL}/api/events/${selectedEvent.id}/rate`, {
@@ -1087,6 +1102,14 @@ const Profile = () => {
     setIsSubmittingChild(true);
     try {
       const codeId = user?.code_id;
+      
+      // Validate that user and code_id exist
+      if (!user || !codeId) {
+        toast.error('User information not loaded. Please refresh the page and try again.');
+        setIsSubmittingChild(false);
+        return;
+      }
+      
       // Check for existing pending request
       const checkRes = await axios.get(`${API_BASE_URL}/newchildrequest/by-code-id`, { params: { code_id: codeId } });
       const hasPending = checkRes.data?.requests?.some(r => r.status === 'Pending');

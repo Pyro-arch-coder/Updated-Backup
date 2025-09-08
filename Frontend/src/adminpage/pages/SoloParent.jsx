@@ -97,6 +97,12 @@ const SoloParent = () => {
   const handleRevoke = async () => {
     if (!selectedParent || !remarks.trim()) return;
     
+    // Validate required fields
+    if (!selectedParent.code_id || !selectedParent.userId || !adminId) {
+      alert('Missing required information. Please refresh the page and try again.');
+      return;
+    }
+    
     try {
       const response = await axios.post(`${API_BASE_URL}/saveRemarks`, {
         code_id: selectedParent.code_id,

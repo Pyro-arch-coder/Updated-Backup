@@ -25,21 +25,21 @@ const EventService = {
     }
   },
 
-  addAttendee: async (eventId, userId) => {
+  addAttendee: async (eventId, userId, userName, userEmail) => {
     try {
-      console.log('Adding attendee:', { eventId, userId });
+      console.log('Adding attendee:', { eventId, userId, userName, userEmail });
       
       // First check if the user is already an attendee
       const exists = await EventService.checkAttendance(eventId, userId);
-      if (exists) {
+      if (exists.attended) {
         return { success: false, message: 'User is already an attendee' };
       }
 
-      // Add the attendee
+      // Add the attendee using the correct schema: (event_id, code_id, name, email, attend_at)
       const result = await queryDatabase(
-        `INSERT INTO attendees (event_id, user_id, created_at) 
-         VALUES (?, ?, NOW())`,
-        [eventId, userId]
+        `INSERT INTO attendees (event_id, code_id, name, email, attend_at) 
+         VALUES (?, ?, ?, ?, NOW())`,
+        [eventId, userId, userName, userEmail]
       );
 
       console.log('Add attendee result:', result);
