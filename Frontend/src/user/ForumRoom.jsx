@@ -132,14 +132,20 @@ const ForumRoom = () => {
             });
             
             if (!response.ok) {
-              console.log(`Failed to fetch comments for post ${post.id}: ${response.status}`);
+              // Silently handle 403 errors for pending posts
+              if (response.status !== 403) {
+                console.log(`Failed to fetch comments for post ${post.id}: ${response.status}`);
+              }
               commentsObj[post.id] = [];
               continue;
             }
             const data = await response.json();
             commentsObj[post.id] = data.map(comment => ({ ...comment, profilePic: comment.authorProfilePic }));
           } catch (error) {
-            console.error(`Error fetching comments for post ${post.id}:`, error);
+            // Silently handle network errors for pending posts (403 errors)
+            if (!error.message || !error.message.includes('403')) {
+              console.error(`Error fetching comments for post ${post.id}:`, error);
+            }
             commentsObj[post.id] = [];
           }
         }

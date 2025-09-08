@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path');
 const app = express();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
@@ -43,6 +42,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(bodyParser.json({ limit: '50mb' }));
 
+// Serve static files from models directory
+app.use('/models', express.static('models'));
+
 const { sendStatusEmail, sendRenewalStatusEmail, sendRevokeEmail, sendTerminationEmail, sendReverificationEmail } = require('./services/emailService');
 
 // Cloudinary setup
@@ -54,9 +56,6 @@ cloudinary.config({
 });
 
 const { pool, queryDatabase } = require('./database');
-
-// Serve face-api.js models as static files
-app.use('/models', express.static(path.join(__dirname, 'models')));
 
 // Add logging middleware
 app.use((req, res, next) => {

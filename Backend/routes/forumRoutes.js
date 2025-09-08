@@ -259,8 +259,8 @@ router.get('/posts/:id/comments', async (req, res) => {
     // For regular users, only show comments on verified posts
     const isAdminRequest = req.path.includes('/admin/');
     if (!isAdminRequest && post.status !== 'Verified' && post.status !== null) {
-      console.log(`Post ${postId} has status ${post.status}, not accessible to regular users`);
-      return res.status(403).json({ message: 'Post is not accessible' });
+      console.log(`Post ${postId} has status ${post.status}, returning empty comments for regular users`);
+      return res.json([]);
     }
     
     const comments = await queryDatabase(`
