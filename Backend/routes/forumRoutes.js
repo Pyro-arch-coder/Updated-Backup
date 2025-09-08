@@ -39,7 +39,7 @@ router.get('/posts', async (req, res) => {
       posts = await queryDatabase(`
         SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
                COUNT(DISTINCT l.id) as likes,
-               GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users
+               IFNULL(GROUP_CONCAT(DISTINCT l.user_id), 'None') as liked_by_users
         FROM forum_posts p
         LEFT JOIN forum_likes l ON p.id = l.post_id
         WHERE (p.status = 'Verified' OR p.status IS NULL)
@@ -52,7 +52,7 @@ router.get('/posts', async (req, res) => {
       posts = await queryDatabase(`
         SELECT p.id, p.title, p.content, p.created_at, p.status, p.visibility, p.barangay, p.user_id,
                COUNT(DISTINCT l.id) as likes,
-               GROUP_CONCAT(DISTINCT l.user_id) as liked_by_users
+               IFNULL(GROUP_CONCAT(DISTINCT l.user_id), 'None') as liked_by_users
         FROM forum_posts p
         LEFT JOIN forum_likes l ON p.id = l.post_id
         WHERE (p.status = 'Verified' OR p.status IS NULL)
@@ -62,9 +62,10 @@ router.get('/posts', async (req, res) => {
       `);
     }
     
-    // Format the liked_by_users field for each post and set author to Anonymous
+    // Format the liked_by_users field for each post, set author to Anonymous, and handle NULL likes
     posts.forEach(post => {
-      post.liked_by_users = post.liked_by_users ? post.liked_by_users.split(',') : [];
+      post.liked_by_users = post.liked_by_users ? post.liked_by_users.split(',').filter(Boolean) : [];
+      post.likes = post.likes !== null ? post.likes : 'None';
       post.author = 'Anonymous';
     });
     
