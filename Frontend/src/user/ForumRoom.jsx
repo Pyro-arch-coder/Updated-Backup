@@ -74,6 +74,14 @@ const ForumRoom = () => {
     setLoading(true);
     setError(null);
     
+    // Check if user is logged in before fetching posts
+    if (!loggedInUserId) {
+      console.log("No logged-in user found, cannot fetch posts");
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/forum/posts?userId=${loggedInUserId}`);
       
@@ -99,7 +107,7 @@ const ForumRoom = () => {
 
   useEffect(() => {
     fetchPosts();
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, loggedInUserId]);
 
   // Fetch comments for each post
   useEffect(() => {
@@ -178,6 +186,12 @@ const ForumRoom = () => {
   const submitPost = async (e) => {
     e.preventDefault();
     
+    // Check if user is logged in
+    if (!currentUser || !currentUser.id) {
+      console.log("User not logged in, cannot create post");
+      return;
+    }
+    
     // Check for bad words in title or content
     if (containsBadWords(newPost.title) || containsBadWords(newPost.content)) {
       setShowBadWordModal(true);
@@ -245,6 +259,12 @@ const ForumRoom = () => {
   const submitComment = async (postId) => {
     if (!newComments[postId]) return;
     
+    // Check if user is logged in
+    if (!currentUser || !currentUser.id) {
+      console.log("User not logged in, cannot add comment");
+      return;
+    }
+    
     try {
       // Create a temporary comment for immediate UI feedback
       const tempComment = {
@@ -300,6 +320,12 @@ const ForumRoom = () => {
   };
 
   const likePost = async (postId) => {
+    // Check if user is logged in
+    if (!currentUser || !currentUser.id) {
+      console.log("User not logged in, cannot like post");
+      return;
+    }
+    
     try {
       // Update likes locally for immediate UI feedback
       setPosts(prevPosts => 
