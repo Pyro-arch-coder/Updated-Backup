@@ -336,6 +336,8 @@ const UserTopNavbar = ({ onNavigate }) => {
     try {
       const userId = localStorage.getItem("UserId");
       if (!userId) return;
+      
+      console.log('markAsRead called with:', { notificationId, type, userId });
 
       // Update the notification state to mark it as read
       setNotifications(prevNotifications =>
@@ -358,7 +360,8 @@ const UserTopNavbar = ({ onNavigate }) => {
 
       if (type === 'event') {
         const eventId = notificationId.replace('event_', '');
-        await fetch(`${API_BASE_URL}/api/events/mark-as-read/${eventId}`, {
+        console.log('Event markAsRead:', { eventId, userId, notificationId });
+        const response = await fetch(`${API_BASE_URL}/api/events/mark-as-read/${eventId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -368,6 +371,11 @@ const UserTopNavbar = ({ onNavigate }) => {
             eventId
           }),
         });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         return;
       }
 
