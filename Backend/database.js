@@ -5,12 +5,14 @@ const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || '',
+  database: process.env.DB_NAME || 'soloparent_new',
   connectionLimit: 10,
   waitForConnections: true,
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+  connectTimeout: 20000,
+  acquireTimeout: 20000,
   // Disable query cache for MySQL 8.0+ compatibility
   flags: '-FOUND_ROWS'
 };

@@ -54,7 +54,13 @@ router.get('/posts', async (req, res) => {
     res.json(posts);
   } catch (error) {
     console.error('Error fetching posts:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    console.error('Database connection status:', pool ? 'Connected' : 'Not connected');
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
   }
 });
 

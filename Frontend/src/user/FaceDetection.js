@@ -19,7 +19,7 @@ const FaceDetection = ({ onPhotoCapture }) => {
         };
     }, [stream]);
 
-    const loadModels = async () => {
+    const loadModels = async (retryCount = 0) => {
         try {
             setModelError(null);
             console.log('Starting to load models...');
@@ -27,13 +27,23 @@ const FaceDetection = ({ onPhotoCapture }) => {
             // Load models from the public directory
             const MODEL_URL = '/models';
             
-            // Load each model with error handling
+            // Add a small delay to ensure the server is ready
+            if (retryCount === 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            // Load each model with error handling and retry logic
             try {
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 console.log('Tiny face detector loaded');
             } catch (error) {
                 console.error('Error loading tiny face detector:', error);
-                throw new Error('Failed to load face detection model. Please ensure all model files are present in the /public/models directory.');
+                if (retryCount < 3) {
+                    console.log(`Retrying model loading... (attempt ${retryCount + 1}/3)`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    return loadModels(retryCount + 1);
+                }
+                throw new Error('Failed to load face detection model. Please refresh the page and try again.');
             }
 
             try {
@@ -41,7 +51,12 @@ const FaceDetection = ({ onPhotoCapture }) => {
                 console.log('Face landmark model loaded');
             } catch (error) {
                 console.error('Error loading face landmark model:', error);
-                throw new Error('Failed to load face landmark model. Please ensure all model files are present in the /public/models directory.');
+                if (retryCount < 3) {
+                    console.log(`Retrying model loading... (attempt ${retryCount + 1}/3)`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    return loadModels(retryCount + 1);
+                }
+                throw new Error('Failed to load face landmark model. Please refresh the page and try again.');
             }
 
             try {
@@ -49,7 +64,12 @@ const FaceDetection = ({ onPhotoCapture }) => {
                 console.log('Face recognition model loaded');
             } catch (error) {
                 console.error('Error loading face recognition model:', error);
-                throw new Error('Failed to load face recognition model. Please ensure all model files are present in the /public/models directory.');
+                if (retryCount < 3) {
+                    console.log(`Retrying model loading... (attempt ${retryCount + 1}/3)`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    return loadModels(retryCount + 1);
+                }
+                throw new Error('Failed to load face recognition model. Please refresh the page and try again.');
             }
 
             console.log('All models loaded successfully');
@@ -193,4 +213,4 @@ const FaceDetection = ({ onPhotoCapture }) => {
     );
 };
 
-export default FaceDetection; 
+export default FaceDetection;

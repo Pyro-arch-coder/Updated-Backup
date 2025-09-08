@@ -8,7 +8,35 @@ const crypto = require('crypto');
 
 // Enable CORS for all routes
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // In production, check against environment variable
+    if (process.env.NODE_ENV === 'production') {
+      const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [];
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    } else {
+      // In development, allow localhost origins
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001', 
+        'http://localhost:3002',
+        'http://localhost:3003',
+        process.env.FRONTEND_URL
+      ].filter(Boolean);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -2818,10 +2846,23 @@ app.use((err, req, res, next) => {
 
 // Set port and start server
 const PORT = process.env.PORT || 8081;
+
+// Log environment configuration for debugging
+console.log('=== Environment Configuration ===');
+console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('PORT:', PORT);
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL || 'Not set');
+console.log('BACKEND_URL:', process.env.BACKEND_URL || 'Not set');
+console.log('DB_HOST:', process.env.DB_HOST || 'Not set');
+console.log('DB_NAME:', process.env.DB_NAME || 'Not set');
+console.log('================================');
+
 try {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Face authentication endpoint: ${process.env.BACKEND_URL || `http://localhost:${PORT}`}/api/authenticate-face`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`CORS configured for: ${process.env.FRONTEND_URL || 'localhost development URLs'}`);
   });
 } catch (err) {
   console.error('Error starting server:', err);

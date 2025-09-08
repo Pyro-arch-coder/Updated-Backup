@@ -295,7 +295,6 @@ const Profile = () => {
         });
 
         const data = await response.json();
-        console.log("Received user data:", data);
 
         if (response.ok) {
           if (data.profilePic) {
@@ -306,7 +305,6 @@ const Profile = () => {
               data.profilePic = cachedProfilePic;
             }
           }
-          console.log("Setting user data:", data);
           setUser(data);
         } else {
           console.error("Error fetching user data:", data.message);
@@ -506,7 +504,6 @@ const Profile = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched user details:', data);
         if (data && Array.isArray(data.documents)) {
           setDocuments(data.documents);
         } else {
@@ -695,10 +692,10 @@ const Profile = () => {
 
   // Add useEffect to check document completion when documents change
   useEffect(() => {
-    if (user) {
+    if (user && documents.length > 0) {
       updateUserStatus();
     }
-  }, [documents, user]);
+  }, [documents]);
 
   useEffect(() => {
     const handlePopState = (event) => {
