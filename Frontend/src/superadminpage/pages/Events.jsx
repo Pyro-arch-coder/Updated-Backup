@@ -420,6 +420,7 @@ const Events = () => {
         setIsUploadingImage(false);
       }
       const eventData = { ...formData, image: imageUrl };
+      console.log('Frontend sending event data:', eventData);
       const response = await axios.post(`${API_BASE_URL}/api/events`, eventData);
       
       if (response.data) {

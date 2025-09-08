@@ -154,6 +154,13 @@ router.post('/', async (req, res) => {
   const { title, description, startDate, startTime, endTime, location, status, visibility, barangay, image } = req.body;
   
   try {
+    console.log('\n=== Event Creation Debug ===');
+    console.log('Raw request body:', req.body);
+    console.log('Request body keys:', Object.keys(req.body));
+    if (req.body.id !== undefined) {
+      console.log('WARNING: id field found in request body:', req.body.id);
+    }
+
     // Input validation
     if (!title || !description || !startDate || !startTime || !endTime || !location) {
       return res.status(400).json({ 
@@ -276,6 +283,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ 
         error: 'Duplicate entry', 
         details: 'An event with similar details already exists' 
+      });
+    }
+    
+    if (error.code === 'ER_NO_DEFAULT_FOR_FIELD') {
+      return res.status(500).json({ 
+        error: 'Database schema error', 
+        details: 'Missing default value for required field. Please contact administrator.' 
       });
     }
     
